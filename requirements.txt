@@ -1,0 +1,8 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pexpect>=4.9
+pydantic>=2.6
+
+# For telegram_agy_bot.py (interactive approval-loop bot):
+python-telegram-bot>=21.0
+pyte>=0.8
