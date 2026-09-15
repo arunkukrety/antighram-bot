@@ -177,6 +177,8 @@ from your laptop to Telegram's servers, so this sidesteps the whole
   if a permission prompt didn't trigger buttons, to see the exact text so
   you can adjust `PERMISSION_RE` / `OPTION_LINE_RE` in the script.
 - `/stop` -- end the session.
+- `/sleep` -- put the host laptop to sleep (`systemctl suspend`).
+
 
 ### Honest limitations
 

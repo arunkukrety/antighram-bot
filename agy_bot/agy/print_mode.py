@@ -3,13 +3,14 @@ Print mode: run agy via stream-json and stream status updates to Telegram.
 """
 
 import asyncio
+import html
 import json
 import time
 from typing import List, Optional
 
 import pexpect
 from telegram.ext import Application
-from telegram.constants import ChatAction
+from telegram.constants import ChatAction, ParseMode
 
 from agy_bot.config import log, AGY_BIN, PRINT_TIMEOUT
 from agy_bot.session import ChatSession
@@ -183,8 +184,9 @@ async def handle_print_message(
     started_wall_clock = time.time()
 
     status_message = None
-
     event_queue = asyncio.Queue()
+    streamed_text = ""
+    current_status = "🚀 <b>Starting agy…</b>"
 
     def event_callback(
         event
@@ -197,62 +199,75 @@ async def handle_print_message(
             pass
 
     async def status_worker():
+        nonlocal status_message, streamed_text, current_status
 
-        nonlocal status_message
-
-        last_status = None
+        last_rendered_text = None
+        last_edit_time = 0.0
 
         while True:
-
             try:
-
                 event = await asyncio.wait_for(
                     event_queue.get(),
-                    timeout=0.5,
+                    timeout=0.3,
                 )
+                events = [event]
+                while not event_queue.empty():
+                    try:
+                        events.append(event_queue.get_nowait())
+                    except asyncio.QueueEmpty:
+                        break
 
+                for ev in events:
+                    new_st = status_from_event(ev)
+                    if new_st:
+                        current_status = new_st
+
+                    step = ev.get("step_update", {})
+                    delta = step.get("text_delta")
+                    if delta:
+                        streamed_text += delta
             except asyncio.TimeoutError:
+                pass
+
+            now = time.monotonic()
+            # Enforce at least 1.0s interval between Telegram message edits
+            if now - last_edit_time < 1.0:
                 continue
 
-            status = status_from_event(
-                event
-            )
+            if streamed_text.strip():
+                clean = streamed_text.strip()
+                if len(clean) > 900:
+                    preview = "… " + clean[-900:]
+                else:
+                    preview = clean
+                display_text = (
+                    f"{current_status}\n\n"
+                    f"<blockquote>{html.escape(preview)}</blockquote>"
+                )
+            else:
+                display_text = current_status
 
-            if not status:
+            if display_text == last_rendered_text:
                 continue
-
-            if status == last_status:
-                continue
-
-            last_status = status
 
             try:
-
                 if status_message is None:
-
-                    status_message = (
-                        await app.bot.send_message(
-                            session.chat_id,
-                            status,
-                        )
+                    status_message = await app.bot.send_message(
+                        session.chat_id,
+                        display_text,
+                        parse_mode=ParseMode.HTML,
                     )
-
                 else:
-
                     await app.bot.edit_message_text(
                         chat_id=session.chat_id,
-                        message_id=(
-                            status_message.message_id
-                        ),
-                        text=status,
+                        message_id=status_message.message_id,
+                        text=display_text,
+                        parse_mode=ParseMode.HTML,
                     )
-
+                last_rendered_text = display_text
+                last_edit_time = now
             except Exception as exc:
-
-                log.debug(
-                    "Status update failed: %s",
-                    exc,
-                )
+                log.debug("Status update edit failed: %s", exc)
 
     status_task = asyncio.create_task(
         status_worker()
@@ -439,6 +454,13 @@ async def handle_print_message(
                     "agy completed the request "
                     "but returned no response text."
                 )
+
+        # Cancel status worker before deleting message
+        status_task.cancel()
+        try:
+            await status_task
+        except asyncio.CancelledError:
+            pass
 
         # ---------------------------------------------------------------
         # Delete the temporary status message.

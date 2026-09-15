@@ -182,11 +182,29 @@ async def send_final_response(
     images: Optional[List[str]] = None,
 ):
     from agy_bot.rendering.markdown import response_html
+    from agy_bot.config import log
 
     chunks = split_text(
         response.strip(),
         3500,
     )
+
+    async def _safe_send(formatted_html: str, raw_text: str):
+        try:
+            await app.bot.send_message(
+                chat_id,
+                formatted_html,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True,
+            )
+        except Exception as exc:
+            log.warning("Telegram HTML send failed (%s); falling back to plain text", exc)
+            await app.bot.send_message(
+                chat_id,
+                raw_text,
+                parse_mode=None,
+                disable_web_page_preview=True,
+            )
 
     # Normal case.
     if len(chunks) == 1:
@@ -196,33 +214,35 @@ async def send_final_response(
             duration,
         )
 
-        if len(formatted) <= 4000:
-            await app.bot.send_message(
-                chat_id,
-                formatted,
-                parse_mode=ParseMode.HTML,
-                disable_web_page_preview=True,
-            )
-            if images:
-                await send_images(app, chat_id, images)
-            return
+        raw_with_footer = response.strip()
+        if model or duration:
+            footer = f"\n\n— {model or 'default'}"
+            if duration:
+                footer += f" ({duration:.1f}s)"
+            raw_with_footer += footer
+
+        await _safe_send(formatted, raw_with_footer)
+        if images:
+            await send_images(app, chat_id, images)
+        return
 
     # Long response.
     for index, chunk in enumerate(chunks):
         formatted = markdown_to_html(chunk)
+        raw_chunk = chunk
 
         if index == len(chunks) - 1:
             formatted += (
                 "\n\n"
                 + format_footer(model, duration)
             )
+            if model or duration:
+                raw_chunk += f"\n\n— {model or 'default'}"
+                if duration:
+                    raw_chunk += f" ({duration:.1f}s)"
 
-        await app.bot.send_message(
-            chat_id,
-            formatted,
-            parse_mode=ParseMode.HTML,
-            disable_web_page_preview=True,
-        )
+        await _safe_send(formatted, raw_chunk)
 
     if images:
         await send_images(app, chat_id, images)
+

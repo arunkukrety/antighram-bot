@@ -16,6 +16,7 @@ from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    BotCommand,
     error as tg_error,
 )
 from telegram.constants import ParseMode, ChatAction
@@ -910,30 +911,51 @@ async def cmd_help(
     text = (
         "🤖 <b>Antigravity Telegram Bot Commands</b>\n\n"
         "<b>Chat &amp; Conversations:</b>\n"
-        "• <code>/new</code> (or <code>/newchat</code>) — Start a fresh chat &amp; reset conversation context\n"
-        "• <code>/conversations</code> (or <code>/history</code>) — List recent chats &amp; resume via buttons\n\n"
+        "• /new (or /newchat) — Start fresh chat &amp; reset context\n"
+        "• /conversations (or /history) — List recent chats &amp; resume\n\n"
         "<b>Workspace &amp; Navigation:</b>\n"
-        "• <code>/pwd</code> — Show current &amp; default workspace\n"
-        "• <code>/cd &lt;path&gt;</code> — Change current workspace directory\n"
-        "• <code>/default [path]</code> — View or set permanent default workspace\n"
-        "• <code>/set_default &lt;path&gt;</code> — Save directory as permanent default\n"
-        "• <code>/browse [path]</code> — Interactive visual folder browser\n"
-        "• <code>/volumes</code> — External drives &amp; storage volumes\n"
-        "• <code>/workspaces</code> — Switch recent workspaces with buttons\n\n"
+        "• /pwd — Show current &amp; default workspace\n"
+        "• /cd <code>&lt;path&gt;</code> — Change current workspace directory\n"
+        "• /default <code>[path]</code> — View or set permanent default workspace\n"
+        "• /set_default <code>&lt;path&gt;</code> — Save directory as permanent default\n"
+        "• /browse <code>[path]</code> — Interactive visual folder browser\n"
+        "• /volumes — External drives &amp; storage volumes\n"
+        "• /workspaces — Switch recent workspaces with buttons\n\n"
         "<b>Terminal &amp; Control:</b>\n"
-        "• <code>/sh &lt;cmd&gt;</code> — Run command in desktop shell (git, ls, etc.)\n"
-        "• <code>/interactive</code> — Live approval mode for agy\n"
-        "• <code>/plain</code> — Switch back to print/streaming mode\n"
-        "• <code>/stop</code> — Interrupt current command or session\n\n"
+        "• /sh <code>&lt;cmd&gt;</code> — Run command in desktop shell\n"
+        "• /interactive — Live approval mode for agy\n"
+        "• /plain — Switch back to print/streaming mode\n"
+        "• /stop — Interrupt current command or session\n"
+        "• /sleep — Put laptop to sleep (suspend)\n\n"
         "<b>Model Management:</b>\n"
-        "• <code>/models</code> — List and select models with one click\n"
-        "• <code>/model &lt;name&gt;</code> — Set active AI model\n"
-        "• <code>/usage</code> — Check model quotas, limits &amp; visual reset timers\n"
+        "• /models — List and select models with one click\n"
+        "• /model <code>&lt;name&gt;</code> — Set active AI model\n"
+        "• /usage — Check model quotas, limits &amp; visual reset timers\n\n"
+        "💡 <i>Tip: Tap the <b>[/]</b> button next to your chat bar (or type <code>/</code>) to auto-populate any command directly into your text box!</i>"
     )
 
-    await update.message.reply_text(
+    markup = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("💬 /new", callback_data="hact:new"),
+            InlineKeyboardButton("📜 /history", callback_data="hact:history"),
+            InlineKeyboardButton("📍 /pwd", callback_data="hact:pwd"),
+        ],
+        [
+            InlineKeyboardButton("📂 /workspaces", callback_data="hact:workspaces"),
+            InlineKeyboardButton("🤖 /models", callback_data="hact:models"),
+            InlineKeyboardButton("📊 /usage", callback_data="hact:usage"),
+        ],
+        [
+            InlineKeyboardButton("🛑 /stop", callback_data="hact:stop"),
+            InlineKeyboardButton("💤 /sleep", callback_data="hact:sleep"),
+        ],
+    ])
+
+    target_msg = update.effective_message or update.message
+    await target_msg.reply_text(
         text,
         parse_mode=ParseMode.HTML,
+        reply_markup=markup,
     )
 
 
@@ -1604,6 +1626,42 @@ async def cmd_stop(
 
 
 # ============================================================================
+# /SLEEP
+# ============================================================================
+
+async def cmd_sleep(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    chat_id = update.effective_chat.id
+
+    if not chat_allowed(chat_id):
+        return
+
+    await update.message.reply_text(
+        "💤 <b>Putting laptop to sleep...</b>\n\n"
+        "⚠️ <i>Note: The Telegram bot will go offline while the laptop is suspended. "
+        "To wake it back up, press the power button or open the laptop lid.</i>",
+        parse_mode=ParseMode.HTML,
+    )
+
+    async def _do_suspend():
+        await asyncio.sleep(1.2)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "systemctl", "suspend",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            await proc.communicate()
+        except Exception as e:
+            log.error(f"Failed to put laptop to sleep: {e}")
+
+    asyncio.create_task(_do_suspend())
+
+
+
+# ============================================================================
 # NORMAL TEXT
 # ============================================================================
 
@@ -1996,6 +2054,13 @@ async def on_callback(
     if not query.data:
         return
 
+    if query.data.startswith("hact:"):
+        await on_help_action_callback(
+            update,
+            context,
+        )
+        return
+
     if query.data.startswith(
         "workspace:"
     ):
@@ -2095,15 +2160,79 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
     log.error(f"Telegram error in update {update}:", exc_info=err)
 
 
+async def on_help_action_callback(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer()
+
+    chat_id = update.effective_chat.id
+    if not chat_allowed(chat_id):
+        return
+
+    action = query.data.split(":", 1)[1] if ":" in query.data else ""
+    fake_update = Update(update_id=update.update_id, message=query.message)
+
+    if action == "new":
+        await cmd_new(fake_update, context)
+    elif action == "history":
+        await cmd_conversations(fake_update, context)
+    elif action == "pwd":
+        await cmd_pwd(fake_update, context)
+    elif action == "workspaces":
+        await cmd_workspaces(fake_update, context)
+    elif action == "models":
+        await cmd_models(fake_update, context)
+    elif action == "usage":
+        await cmd_usage(fake_update, context)
+    elif action == "stop":
+        await cmd_stop(fake_update, context)
+    elif action == "sleep":
+        await cmd_sleep(fake_update, context)
+
+
 # ============================================================================
-# ENTRYPOINT
+# BOT COMMANDS REGISTRATION & ENTRYPOINT
 # ============================================================================
+
+BOT_COMMANDS = [
+    BotCommand("new", "Start fresh chat & reset context"),
+    BotCommand("conversations", "List recent chats & resume"),
+    BotCommand("pwd", "Show current & default workspace"),
+    BotCommand("cd", "Change directory: /cd <path>"),
+    BotCommand("default", "View or set permanent default workspace"),
+    BotCommand("browse", "Interactive visual folder browser"),
+    BotCommand("volumes", "External drives & storage"),
+    BotCommand("workspaces", "Switch recent workspaces"),
+    BotCommand("sh", "Run command in desktop shell: /sh <cmd>"),
+    BotCommand("models", "List & select AI models"),
+    BotCommand("model", "Set active model: /model <name>"),
+    BotCommand("usage", "Check quotas & reset timers"),
+    BotCommand("interactive", "Live approval mode for agy"),
+    BotCommand("plain", "Streaming print mode"),
+    BotCommand("stop", "Interrupt active command or session"),
+    BotCommand("sleep", "Put laptop to sleep (suspend)"),
+    BotCommand("help", "Show all commands & usage guide"),
+]
+
+
+async def post_init(application: Application) -> None:
+    try:
+        await application.bot.set_my_commands(BOT_COMMANDS)
+        log.info("Registered Telegram bot commands via set_my_commands.")
+    except Exception as exc:
+        log.warning(f"Could not register bot commands: {exc}")
+
 
 def main():
 
     app = (
         ApplicationBuilder()
         .token(BOT_TOKEN)
+        .post_init(post_init)
         .build()
     )
 
@@ -2130,6 +2259,7 @@ def main():
     app.add_handler(CommandHandler("usage", cmd_usage))
     app.add_handler(CommandHandler("debug", cmd_debug))
     app.add_handler(CommandHandler("stop", cmd_stop))
+    app.add_handler(CommandHandler("sleep", cmd_sleep))
     app.add_handler(CallbackQueryHandler(on_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
 
