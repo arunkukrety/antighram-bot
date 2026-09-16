@@ -1,0 +1,5 @@
+# GUI Desktop App dependencies
+# Install alongside requirements.txt: pip install -r requirements-gui.txt
+customtkinter>=5.2.2
+pystray>=0.19.5
+pillow>=10.0.0

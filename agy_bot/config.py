@@ -82,6 +82,9 @@ PTY_COLS = 200
 
 TELEGRAM_MAX_LEN = 3900
 
+import time
+BOT_START_TIME = time.time()
+
 # ============================================================================
 # CONFIG FILE I/O
 # ============================================================================
@@ -128,3 +131,27 @@ def save_bot_config(config: dict):
         log.exception(
             "Could not save bot config"
         )
+
+
+def get_notification_chat_ids() -> set:
+    chats = set()
+    if ALLOWED_CHAT_IDS:
+        chats.update(ALLOWED_CHAT_IDS)
+    config = load_bot_config()
+    saved = config.get("known_chat_ids", [])
+    if isinstance(saved, list):
+        chats.update(saved)
+    return chats
+
+
+def remember_chat_id(chat_id: int):
+    try:
+        config = load_bot_config()
+        known = set(config.get("known_chat_ids", []))
+        if chat_id not in known:
+            known.add(chat_id)
+            config["known_chat_ids"] = list(known)
+            save_bot_config(config)
+    except Exception:
+        pass
+

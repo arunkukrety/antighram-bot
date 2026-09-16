@@ -1,0 +1,166 @@
+name: Build & Release
+
+# Triggers on any tag that matches v*.*.* (e.g. v1.0.0, v2.3.1)
+# Push a tag to trigger:
+#   git tag v1.0.0
+#   git push origin v1.0.0
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write   # needed to create GitHub Releases and upload assets
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Build matrix: runs on Linux and Windows simultaneously
+  # ──────────────────────────────────────────────────────────────────────────
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: AntigravityBot-linux
+            asset_label: AntigravityBot-linux-x86_64
+
+          - os: windows-latest
+            artifact_name: AntigravityBot.exe
+            asset_label: AntigravityBot-windows-x86_64.exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Python setup ────────────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # ── 3. Install Linux display / tray dependencies ───────────────────────
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            python3-tk \
+            libxcb1 \
+            libxcb-util1 \
+            libayatana-appindicator3-1 \
+            gir1.2-ayatanaappindicator3-0.1 \
+            libgtk-3-0 \
+            upx-ucl
+
+      # ── 4. Install Windows UPX (compressor) ────────────────────────────────
+      - name: Install UPX (Windows)
+        if: runner.os == 'Windows'
+        run: choco install upx --no-progress -y
+        shell: pwsh
+
+      # ── 5. Install Python dependencies ─────────────────────────────────────
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-gui.txt
+          pip install pyinstaller
+
+      # ── 6. Build the executable ─────────────────────────────────────────────
+      - name: Build executable
+        run: python build.py
+
+      # ── 7. Rename output for clear asset names ──────────────────────────────
+      - name: Rename artifact (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mv dist/AntigravityBot-linux dist/AntigravityBot-linux-x86_64
+          chmod +x dist/AntigravityBot-linux-x86_64
+
+      - name: Rename artifact (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Rename-Item dist\AntigravityBot.exe dist\AntigravityBot-windows-x86_64.exe
+        shell: pwsh
+
+      # ── 8. Upload build artifact ────────────────────────────────────────────
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_label }}
+          path: dist/${{ matrix.asset_label }}
+          retention-days: 7
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Release: waits for both builds, creates a GitHub Release, attaches both
+  # ──────────────────────────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Download both platform artifacts ────────────────────────────────────
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: AntigravityBot-linux-x86_64
+          path: release/
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: AntigravityBot-windows-x86_64.exe
+          path: release/
+
+      # ── Create the release and upload files ──────────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Antigravity Bot ${{ github.ref_name }}"
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
+          files: |
+            release/AntigravityBot-linux-x86_64
+            release/AntigravityBot-windows-x86_64.exe
+          body: |
+            ## 🤖 Antigravity Telegram Bot ${{ github.ref_name }}
+
+            A plug-and-play desktop tray app to manage your Antigravity Telegram Bot server.
+            No Python installation required.
+
+            ---
+
+            ### ⬇️ Download
+
+            | Platform | File | Notes |
+            |---|---|---|
+            | 🪟 Windows | `AntigravityBot-windows-x86_64.exe` | Double-click to run |
+            | 🐧 Linux | `AntigravityBot-linux-x86_64` | Run `chmod +x` first, then double-click or `./AntigravityBot-linux-x86_64` |
+
+            ---
+
+            ### 🚀 First Run
+
+            1. Download the file for your platform above
+            2. Run it — a **setup wizard** will appear asking for your Bot Token
+            3. Get your Bot Token from [@BotFather](https://t.me/botfather) on Telegram
+            4. Get your Chat ID from [@userinfobot](https://t.me/userinfobot) on Telegram
+            5. Fill in the wizard → click **Get Started** → the app goes to your system tray
+
+            The app lives in your **system tray**. Left-click the icon to open the control panel.
+
+            ---
+
+            ### ⚙️ Features
+
+            - **System tray** — always-on indicator (green = running, gray = stopped)
+            - **Status tab** — power toggle, PID display, live uptime clock
+            - **Config tab** — edit all settings without touching config files
+            - **Start on startup** — toggle in Settings (Windows registry / Linux autostart)
+            - **Logs tab** — live streaming terminal output from the bot

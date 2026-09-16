@@ -19,6 +19,7 @@ from telegram import (
     BotCommand,
     error as tg_error,
 )
+from telegram.request import HTTPXRequest
 from telegram.constants import ParseMode, ChatAction
 from telegram.ext import (
     Application,
@@ -31,7 +32,7 @@ from telegram.ext import (
 )
 
 from agy_bot.config import (
-    log, BOT_TOKEN,
+    log, BOT_TOKEN, get_notification_chat_ids,
 )
 from agy_bot.session import (
     SESSIONS, ChatSession, InteractiveState, teardown_session,
@@ -57,6 +58,7 @@ from agy_bot.conversation.history import (
     render_conversations_markup,
     load_conversations,
 )
+from agy_bot.health.health import cmd_health, on_health_callback
 
 # Navigation history for the directory browser (chat_id -> list of paths)
 NAV_HISTORY: Dict[int, List[str]] = {}
@@ -910,6 +912,8 @@ async def cmd_help(
 
     text = (
         "🤖 <b>Antigravity Telegram Bot Commands</b>\n\n"
+        "<b>System &amp; Health:</b>\n"
+        "• /health — Check service, bot and system health\n\n"
         "<b>Chat &amp; Conversations:</b>\n"
         "• /new (or /newchat) — Start fresh chat &amp; reset context\n"
         "• /conversations (or /history) — List recent chats &amp; resume\n\n"
@@ -936,16 +940,17 @@ async def cmd_help(
 
     markup = InlineKeyboardMarkup([
         [
+            InlineKeyboardButton("🩺 /health", callback_data="hact:health"),
             InlineKeyboardButton("💬 /new", callback_data="hact:new"),
             InlineKeyboardButton("📜 /history", callback_data="hact:history"),
-            InlineKeyboardButton("📍 /pwd", callback_data="hact:pwd"),
         ],
         [
+            InlineKeyboardButton("📍 /pwd", callback_data="hact:pwd"),
             InlineKeyboardButton("📂 /workspaces", callback_data="hact:workspaces"),
             InlineKeyboardButton("🤖 /models", callback_data="hact:models"),
-            InlineKeyboardButton("📊 /usage", callback_data="hact:usage"),
         ],
         [
+            InlineKeyboardButton("📊 /usage", callback_data="hact:usage"),
             InlineKeyboardButton("🛑 /stop", callback_data="hact:stop"),
             InlineKeyboardButton("💤 /sleep", callback_data="hact:sleep"),
         ],
@@ -2137,6 +2142,13 @@ async def on_callback(
 
         return
 
+    if query.data.startswith("health:"):
+        await on_health_callback(
+            update,
+            context,
+        )
+        return
+
     if query.data.startswith("conv:") or query.data in ("conv_new", "conv_refresh"):
         await on_conversation_callback(
             update,
@@ -2176,7 +2188,9 @@ async def on_help_action_callback(
     action = query.data.split(":", 1)[1] if ":" in query.data else ""
     fake_update = Update(update_id=update.update_id, message=query.message)
 
-    if action == "new":
+    if action == "health":
+        await cmd_health(fake_update, context)
+    elif action == "new":
         await cmd_new(fake_update, context)
     elif action == "history":
         await cmd_conversations(fake_update, context)
@@ -2199,6 +2213,7 @@ async def on_help_action_callback(
 # ============================================================================
 
 BOT_COMMANDS = [
+    BotCommand("health", "Service & system health diagnostics"),
     BotCommand("new", "Start fresh chat & reset context"),
     BotCommand("conversations", "List recent chats & resume"),
     BotCommand("pwd", "Show current & default workspace"),
@@ -2226,13 +2241,65 @@ async def post_init(application: Application) -> None:
     except Exception as exc:
         log.warning(f"Could not register bot commands: {exc}")
 
+    target_chats = get_notification_chat_ids()
+    online_text = (
+        "🟢 <b>Antigravity Bot is Online</b>\n\n"
+        "💻 Server is up and ready for commands.\n"
+        "Type /help to see commands or tap <b>[/]</b> to browse."
+    )
+    for chat_id in target_chats:
+        try:
+            await application.bot.send_message(
+                chat_id=chat_id,
+                text=online_text,
+                parse_mode=ParseMode.HTML,
+            )
+        except Exception as exc:
+            log.warning(f"Could not send online alert to {chat_id}: {exc}")
+
+
+async def post_stop(application: Application) -> None:
+    target_chats = get_notification_chat_ids()
+    offline_text = (
+        "🔴 <b>Antigravity Bot is Going Offline</b>\n\n"
+        "💤 The bot server process is stopping.\n"
+        "Commands are paused until the server starts back up."
+    )
+    for chat_id in target_chats:
+        try:
+            await application.bot.send_message(
+                chat_id=chat_id,
+                text=offline_text,
+                parse_mode=ParseMode.HTML,
+            )
+        except Exception as exc:
+            log.warning(f"Could not send offline alert to {chat_id}: {exc}")
+
 
 def main():
+
+    request = HTTPXRequest(
+        connection_pool_size=100,
+        connect_timeout=20.0,
+        read_timeout=30.0,
+        write_timeout=30.0,
+        pool_timeout=10.0,
+    )
+    get_updates_request = HTTPXRequest(
+        connection_pool_size=10,
+        connect_timeout=20.0,
+        read_timeout=30.0,
+        write_timeout=20.0,
+        pool_timeout=10.0,
+    )
 
     app = (
         ApplicationBuilder()
         .token(BOT_TOKEN)
+        .request(request)
+        .get_updates_request(get_updates_request)
         .post_init(post_init)
+        .post_stop(post_stop)
         .build()
     )
 
@@ -2240,6 +2307,7 @@ def main():
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("health", cmd_health))
     app.add_handler(CommandHandler("new", cmd_new))
     app.add_handler(CommandHandler("newchat", cmd_new))
     app.add_handler(CommandHandler("conversations", cmd_conversations))

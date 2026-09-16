@@ -5,14 +5,17 @@ Text utilities: ANSI stripping, text splitting, chat authorization.
 import re
 from typing import List
 
-from agy_bot.config import ALLOWED_CHAT_IDS
+from agy_bot.config import ALLOWED_CHAT_IDS, remember_chat_id
 
 
 def chat_allowed(chat_id: int) -> bool:
-    return (
+    allowed = (
         ALLOWED_CHAT_IDS is None
         or chat_id in ALLOWED_CHAT_IDS
     )
+    if allowed:
+        remember_chat_id(chat_id)
+    return allowed
 
 
 def strip_ansi(text: str) -> str:

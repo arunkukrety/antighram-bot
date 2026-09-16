@@ -9,12 +9,13 @@ import time
 from typing import List, Optional
 
 import pexpect
+from telegram import error as tg_error
 from telegram.ext import Application
 from telegram.constants import ChatAction, ParseMode
 
 from agy_bot.config import log, AGY_BIN, PRINT_TIMEOUT
 from agy_bot.session import ChatSession
-from agy_bot.rendering.text import strip_ansi
+from agy_bot.rendering.text import strip_ansi, split_text
 from agy_bot.rendering.images import find_involved_images, send_final_response
 from agy_bot.agy.status import status_from_event
 from agy_bot.conversation.history import record_conversation
@@ -266,6 +267,9 @@ async def handle_print_message(
                     )
                 last_rendered_text = display_text
                 last_edit_time = now
+            except tg_error.RetryAfter as exc:
+                last_edit_time = now + exc.retry_after
+                log.debug("Status update rate limited: sleeping %s s", exc.retry_after)
             except Exception as exc:
                 log.debug("Status update edit failed: %s", exc)
 
@@ -480,6 +484,8 @@ async def handle_print_message(
             except Exception:
                 pass
 
+            status_message = None
+
         # ---------------------------------------------------------------
         # Detect any involved screenshots / images
         # ---------------------------------------------------------------
@@ -496,14 +502,28 @@ async def handle_print_message(
         # Send final formatted response.
         # ---------------------------------------------------------------
 
-        await send_final_response(
-            app,
-            session.chat_id,
-            str(response),
-            str(model),
-            duration,
-            images=images,
-        )
+        try:
+            await send_final_response(
+                app,
+                session.chat_id,
+                str(response),
+                str(model),
+                duration,
+                images=images,
+            )
+        except Exception as send_exc:
+            log.exception(
+                "send_final_response failed, attempting emergency raw text delivery: %s",
+                send_exc,
+            )
+            raw_resp = str(response).strip() or "⚠️ (empty response from agy)"
+            for chunk in split_text(raw_resp, 3500):
+                await app.bot.send_message(
+                    chat_id=session.chat_id,
+                    text=chunk,
+                    parse_mode=None,
+                    disable_web_page_preview=True,
+                )
 
     except pexpect.TIMEOUT:
 

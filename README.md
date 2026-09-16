@@ -1,218 +1,399 @@
-# agy-server
+# Telegram Antigravity Bot
 
-A small FastAPI wrapper that exposes your local Antigravity CLI (`agy`) as an
-HTTP API, so you can drive it from your phone (or curl, or anything) while
-your laptop acts as the server.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Telegram Bot API](https://img.shields.io/badge/Telegram%20Bot%20API-v21+-blue?logo=telegram)](https://core.telegram.org/bots/api)
+[![Antigravity CLI](https://img.shields.io/badge/Antigravity-CLI%20Compatible-green)](https://github.com/google-deepmind)
 
-## Why it's a job queue, not one blocking call
+A powerful, feature-rich Telegram bridge and remote-control interface for **Google DeepMind's Antigravity CLI (`agy`)**. 
 
-`agy -p "..."` can take anywhere from a few seconds to several minutes.
-Blocking an HTTP request for that long is fragile on mobile networks, so:
+Control your local AI coding agent directly from your phone or any device with Telegram. Run coding prompts, browse and switch project workspaces, approve interactive terminal permissions with one tap, track AI model quotas with live progress bars, execute shell commands, and receive generated image artifacts—all without opening ports or configuring network port forwarding.
 
-1. `POST /jobs` starts the run in a background thread and returns a `job_id`
-   immediately.
-2. `GET /jobs/{job_id}` polls for the result.
+---
 
-## Why `pexpect` instead of `subprocess.run`
+## Table of Contents
 
-`agy -p` has a documented bug: when stdout isn't a real terminal (which is
-always true for `subprocess`), it either hangs or silently returns nothing
-(see antigravity-cli issues #76 and #318). `pexpect` allocates a
-pseudo-terminal so `agy` behaves like it's talking to an interactive shell.
+- [Why This Project Exists](#why-this-project-exists)
+- [Key Features](#key-features)
+  - [Dual Execution Modes](#dual-execution-modes)
+  - [Rich Output & Media Rendering](#rich-output--media-rendering)
+  - [Visual Directory Browser & Volume Mounts](#visual-directory-browser--volume-mounts)
+  - [Workspace & Conversation Persistence](#workspace--conversation-persistence)
+  - [Interactive Model Selection & Live Quotas](#interactive-model-selection--live-quotas)
+  - [Remote Shell & System Power Controls](#remote-shell--system-power-controls)
+  - [Security & Access Control](#security--access-control)
+- [Project Architecture](#project-architecture)
+- [Prerequisites](#prerequisites)
+- [Installation & Setup](#installation--setup)
+- [Configuration Reference](#configuration-reference)
+- [Running as a System Service (systemd)](#running-as-a-system-service-systemd)
+- [Command Reference](#command-reference)
+- [Troubleshooting & FAQ](#troubleshooting--faq)
+- [Contributing](#contributing)
+- [License](#license)
 
-This works on **Linux and macOS**. It does not work the same way on native
-Windows. If your laptop is Windows, run this whole server inside **WSL**
-(agy runs fine there too), or swap `pexpect` for `pywinpty` — ping me if you
-want that version.
+---
 
-## Setup
+## Why This Project Exists
+
+Running autonomous coding agents like Antigravity on your local machine or workstation provides access to full compute, local files, compilers, and test suites. However, leaving your workstation often means pausing your workflow.
+
+Traditional approaches like web servers or SSH require public IP addresses, dynamic DNS, complex firewall routing, or VPN clients. 
+
+**Telegram Antigravity Bot** eliminates these hurdles:
+- **Outbound Long Polling**: The bot connects *outward* to Telegram's HTTPS servers. It works seamlessly behind home NATs, mobile hotspots, firewalls, and university/corporate networks without exposing any local ports.
+- **PTY Terminal Emulation**: Avoids known CLI subprocess hanging bugs by allocating pseudo-terminals (`pexpect`), ensuring `agy` behaves exactly as it would in an interactive terminal.
+- **Mobile-First UX**: Complex terminal flows—such as permission approvals, model selections, workspace switching, and file browsing—are converted into interactive Telegram buttons and formatted messages.
+
+---
+
+## Key Features
+
+### Dual Execution Modes
+
+1. **Print / Streaming Mode (`/plain`) [Default]**
+   - Runs `agy` via `--output-format stream-json`.
+   - **Live Progress Updates**: Provides real-time status messages showing exactly what tool `agy` is running:
+     - ⚡ `Running: git status`
+     - 📖 `Reading: config.py`
+     - ✏️ `Editing: main.py`
+     - 🔍 `Searching: query`
+   - **Streaming Quote Preview**: Displays a live, collapsible blockquote preview of the streamed response text as it is generated.
+   - **Rate-Limited Edits**: Throttles Telegram message updates to 1.0-second intervals to avoid Telegram API rate limits.
+   - **Clean Teardown**: Automatically cleans up temporary status messages when the final response is delivered.
+
+2. **Interactive PTY Mode (`/interactive`)**
+   - Runs `agy` in full interactive mode inside an emulated pseudo-terminal (`pexpect` + `pyte`).
+   - **Smart Permission Interception**: Detects interactive prompts (e.g. `Do you want to proceed? Requesting permission for: ...`) and renders inline action buttons (`1. Allow`, `2. Reject`, etc.). Tapping an inline button instantly writes the response back to the PTY.
+   - **Quiet-Screen Detection**: Intelligently buffers and forwards terminal output once the agent has been quiet for 1.5 seconds.
+   - **Direct Input**: Regular text messages sent in chat are passed directly to the interactive session.
+
+---
+
+### Rich Output & Media Rendering
+
+- **Telegram-Safe Markdown Parsing**: Converts LLM markdown (fenced code blocks with language labels, inline code, bold, italics, bullets, links) into sanitized Telegram HTML.
+- **Plain Text Fallback**: If Telegram rejects malformed HTML markup, the bot automatically falls back to raw plain text delivery, ensuring you never miss a response.
+- **Automatic Message Splitting**: Long responses exceeding Telegram's 4096-character limit are automatically chunked cleanly without breaking formatting.
+- **Artifact & Image Auto-Detection**: Automatically detects generated or modified images (`.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`) in the workspace or conversation brain directory, deduplicates them by MD5 content hash, and sends them directly to your chat as photos or uncompressed documents.
+- **Execution Footer**: Displays the active AI model and execution duration in seconds on every completed run.
+
+---
+
+### Visual Directory Browser & Volume Mounts
+
+- **Interactive Directory Browser (`/browse [path]`)**:
+  - Browse your workstation's filesystem using inline buttons.
+  - Navigate directories: `⬆️ Up`, `⬇️ Prev` (with navigation history), or click subfolders in a 2-column layout.
+  - One-tap actions: `🎯 Set Active`, `🚀 Launch agy`, and `⭐ Set Default`.
+- **System Volume & External Storage Detection (`/volumes`)**:
+  - Automatically queries `lsblk -J` and checks `/run/media/$USER/*`, `/media/*`, and `/mnt/*`.
+  - Discovers external SSDs, USB flash drives, and secondary OS partitions (NTFS, FAT32, ext4).
+  - One-click buttons to browse mounted volumes or mount & open unmounted partitions.
+
+---
+
+### Workspace & Conversation Persistence
+
+- **Smart Workspace Resolution (`/cd <path>`)**:
+  - Resolves absolute paths, user-expanded paths (`~/...`), paths relative to the current workspace, paths relative to `$HOME`, or fuzzy matches against recent directory names.
+- **Persistent Defaults (`/default`, `/set_default <path>`)**:
+  - View or permanently save your default workspace across restarts in `~/.agy-telegram-config.json`.
+- **Recent Workspaces (`/workspaces`)**:
+  - View and switch between your most recently used workspaces with quick-select buttons.
+- **Conversation Resumption (`/conversations` or `/history`)**:
+  - Lists past conversations with prompt previews, timestamps, and workspace badges.
+  - One-click buttons to resume previous conversations (`--continue` or `--conversation <id>`).
+  - Automatically scans local Antigravity brain transcript logs (`~/.gemini/antigravity-ide/brain/`) to discover historical sessions on disk.
+- **Context Reset (`/new` or `/newchat`)**:
+  - Resets conversation context and starts a fresh thread immediately.
+
+---
+
+### Interactive Model Selection & Live Quotas
+
+- **Hierarchical Model Selector (`/models`)**:
+  - Dynamically queries `agy models` and groups models by family (Gemini, Claude, GPT, etc.).
+  - Select reasoning effort (High, Medium, Low, Thinking, Standard) using inline buttons.
+  - Or switch models directly via `/model <name>`.
+- **Live Quota & Usage Monitor (`/usage`)**:
+  - Queries `agy -p /usage --output-format stream-json`.
+  - Renders ASCII visual progress bars (`[████████░░]`), remaining percentages, and color-coded status badges (🟢 🟡 🔴).
+  - Shows exact reset countdown timers (e.g. `Refreshes in 3h 12m`).
+
+---
+
+### Remote Shell & System Power Controls
+
+- **Desktop Shell Execution (`/sh <cmd>`)**:
+  - Run terminal commands (e.g., `/sh git status`, `/sh docker ps`, `/sh npm test`) directly inside your active workspace.
+  - Enforces a 60-second execution timeout and provides clean, monospaced output formatting.
+- **Session Interruption (`/stop`)**:
+  - Interrupts running `agy` processes or cancels the active session.
+- **Remote Laptop Sleep (`/sleep`)**:
+  - Suspends the host laptop (`systemctl suspend`) directly from Telegram when you step away, with clear safety and wake-up guidance.
+- **Diagnostic Screen Dump (`/debug`)**:
+  - Dumps the raw PTY screen buffer to verify what the terminal is displaying.
+- **Native Telegram Command Menu**:
+  - Registers all commands with Telegram via `set_my_commands` so typing `/` or clicking the `[/]` button auto-populates the command list.
+
+---
+
+### Security & Access Control
+
+- **Strict Chat ID Whitelist**:
+  - The `TELEGRAM_ALLOWED_CHAT_IDS` environment variable restricts access exclusively to authorized Telegram user IDs or group chats.
+  - Unauthenticated requests are silently ignored, preventing unauthorized access to your machine.
+
+---
+
+## Project Architecture
+
+The codebase is organized into modular packages:
+
+```text
+agy-server/
+├── agy_bot/                         # Core Python package
+│   ├── agy/                         # agy process runners
+│   │   ├── interactive_mode.py      # PTY spawner, pyte screen, quiet handler, permissions
+│   │   ├── print_mode.py            # stream-json runner, live quote preview, rate-limiting
+│   │   └── status.py                # Stream event to status text & tool indicator mapping
+│   ├── browse/                      # File browser components
+│   │   └── markup.py                # Interactive directory browser inline keyboard builder
+│   ├── conversation/                # Conversation state & tracking
+│   │   └── history.py               # JSON persistence & Antigravity brain log discovery
+│   ├── models/                      # Model management
+│   │   └── models.py                # Model grouping, reasoning effort, inline selector
+│   ├── rendering/                   # Output formatting & media
+│   │   ├── images.py                # Image/artifact detector, MD5 deduplication, sender
+│   │   ├── markdown.py              # Markdown to Telegram-safe HTML parser & footers
+│   │   └── text.py                  # ANSI stripper & 4096-char chunk splitter
+│   ├── usage/                       # Quota & metrics
+│   │   └── usage.py                 # stream-json quota parser & ASCII progress bar renderer
+│   ├── workspace/                   # Workspace & filesystem tools
+│   │   ├── browse_token.py          # Ephemeral token mapping for long path callback data
+│   │   ├── history.py               # Workspace history tracking
+│   │   ├── resolver.py              # Fuzzy path resolution & default workspace config
+│   │   └── volumes.py               # External drive & partition detection via lsblk
+│   ├── config.py                    # Environment variables, logging, constants
+│   ├── main.py                      # Application entrypoint & Telegram handlers
+│   └── session.py                   # ChatSession and InteractiveState dataclasses
+├── telegram_agy_bot.py              # Backward-compatible entrypoint shim
+├── requirements.txt                 # Python package dependencies
+├── .env.example                     # Environment template file
+└── README.md                        # Project documentation
+```
+
+---
+
+## Prerequisites
+
+1. **Linux or macOS** (x86_64 or ARM64)
+   *Note: Native Windows is not supported due to PTY requirements. Windows users can run this seamlessly inside WSL2.*
+2. **Python 3.10+**
+3. **Antigravity CLI (`agy`)** installed and authenticated on the host machine:
+   ```bash
+   agy --version
+   agy models
+   ```
+4. A **Telegram Account**
+
+---
+
+## Installation & Setup
+
+### 1. Clone the Repository
 
 ```bash
-cd agy-server
+git clone https://github.com/arunkukrety/telegram-anti-gravity-bot.git
+cd telegram-anti-gravity-bot
+```
+
+### 2. Create a Virtual Environment & Install Dependencies
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-
-# Make sure agy itself works first, outside this wrapper:
-agy --version
-agy models
-
-# Pick a random shared secret -- this is what your phone will send as
-# X-API-Key on every request.
-export AGY_SERVER_API_KEY=$(python3 -c 'import secrets; print(secrets.token_hex(24))')
-echo "Save this key: $AGY_SERVER_API_KEY"
-
-# Optional: where agy runs by default, if a request doesn't specify one.
-export AGY_DEFAULT_WORKSPACE=~/agy-server-workspace
-
-python3 server.py
-# -> listening on 0.0.0.0:8787
 ```
 
-## Using it
+### 3. Create a Telegram Bot
 
-Start a job:
+1. Open Telegram and search for [@BotFather](https://t.me/BotFather).
+2. Send `/newbot` and follow the prompts to choose a name and username.
+3. Copy the HTTP API **Bot Token** provided (e.g. `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`).
+
+### 4. Find Your Telegram Chat ID
+
+1. Open Telegram and message [@userinfobot](https://t.me/userinfobot).
+2. Note your numeric **Id** (e.g. `123456789`).
+
+### 5. Configure Environment Variables
+
+Create a `.env` file from the provided template:
 
 ```bash
-curl -s -X POST http://localhost:8787/jobs \
-  -H "X-API-Key: $AGY_SERVER_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-        "prompt": "List all TODOs in this codebase",
-        "model": "Gemini 3.5 Flash (High)",
-        "workspace": "/home/you/some-project"
-      }'
-# -> {"job_id": "...", "status": "queued", ...}
+cp .env.example .env
 ```
 
-Poll it:
+Edit `.env` with your preferred editor:
+
+```env
+# Required: Bot token from @BotFather
+TELEGRAM_BOT_TOKEN="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+
+# Recommended: Your numeric Telegram chat ID (comma-separated if multiple)
+TELEGRAM_ALLOWED_CHAT_IDS="123456789"
+
+# Optional: Path to agy binary (default: 'agy')
+AGY_BIN="agy"
+
+# Optional: Default workspace directory
+AGY_DEFAULT_WORKSPACE="~/agy-server-workspace"
+
+# Optional: Print mode timeout in seconds (default: 300)
+AGY_PRINT_TIMEOUT=300
+```
+
+### 6. Run the Bot
+
+Launch the bot directly:
 
 ```bash
-curl -s http://localhost:8787/jobs/<job_id> -H "X-API-Key: $AGY_SERVER_API_KEY"
+python -m agy_bot.main
+# Or use the entrypoint shim:
+python telegram_agy_bot.py
 ```
 
-List available models (from `agy models`):
+Open your bot in Telegram and send `/start` or `/help`!
+
+---
+
+## Configuration Reference
+
+| Variable | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `TELEGRAM_BOT_TOKEN` | String | **Required** | Telegram bot token obtained from `@BotFather`. |
+| `TELEGRAM_ALLOWED_CHAT_IDS`| String | `""` (Open) | Comma-separated list of allowed user/chat IDs. Highly recommended. |
+| `AGY_BIN` | String | `agy` | Command or absolute path to the `agy` binary. |
+| `AGY_DEFAULT_WORKSPACE` | String | `~/agy-server-workspace` | Default directory where `agy` runs if no workspace is active. |
+| `AGY_PRINT_TIMEOUT` | Integer| `300` | Timeout in seconds for `--output-format stream-json` runs. |
+
+Persistent runtime settings are saved to:
+- Bot configuration: `~/.agy-telegram-config.json`
+- Recent workspaces: `~/.agy-telegram-workspaces.json`
+- Conversation history: `~/.agy-telegram-conversations.json`
+
+---
+
+## Running as a System Service (systemd)
+
+To keep the bot running 24/7 as a background service on your Linux host:
+
+### 1. Create a systemd Service File
+
+Create `/etc/systemd/system/agy-bot.service` (replace `arun` and paths with your username and repo location):
+
+```ini
+[Unit]
+Description=Telegram Antigravity Bot
+After=network.target
+
+[Service]
+Type=simple
+User=arun
+WorkingDirectory=/home/arun/agy-server
+EnvironmentFile=/home/arun/agy-server/.env
+ExecStart=/home/arun/agy-server/.venv/bin/python -m agy_bot.main
+Restart=always
+RestartSec=5
+
+# Ensure user PATH includes user-installed binaries (like agy)
+Environment="PATH=/home/arun/.local/bin:/usr/local/bin:/usr/bin:/bin"
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### 2. Enable and Start the Service
 
 ```bash
-curl -s http://localhost:8787/models -H "X-API-Key: $AGY_SERVER_API_KEY"
+sudo systemctl daemon-reload
+sudo systemctl enable agy-bot.service
+sudo systemctl start agy-bot.service
 ```
 
-See what agy changed, if the workspace is a git repo:
+### 3. Manage and Check Logs
 
 ```bash
-curl -s http://localhost:8787/jobs/<job_id>/diff -H "X-API-Key: $AGY_SERVER_API_KEY"
+# Check service status
+sudo systemctl status agy-bot.service
+
+# View live streaming logs
+journalctl -u agy-bot.service -f
 ```
 
-Continue the same conversation across requests (so follow-up prompts have
-context):
+---
 
-```bash
-curl -s -X POST http://localhost:8787/jobs \
-  -H "X-API-Key: $AGY_SERVER_API_KEY" -H "Content-Type: application/json" \
-  -d '{"prompt": "Now add tests for that", "continue_last": true}'
+## Command Reference
+
+| Command | Syntax | Description |
+| :--- | :--- | :--- |
+| `/new` | `/new` or `/newchat` | Reset conversation context and start a fresh session. |
+| `/conversations` | `/conversations` or `/history` | View recent conversations with prompt previews and resume buttons. |
+| `/pwd` | `/pwd` | Display the current active workspace and default workspace. |
+| `/cd` | `/cd <path>` | Switch workspace (supports absolute, relative, `~`, and recent folder names). |
+| `/default` | `/default [path]` | Display or set the permanent default workspace. |
+| `/set_default` | `/set_default <path>` | Save the specified path as the permanent default workspace. |
+| `/browse` | `/browse [path]` | Open the interactive visual directory browser with navigation buttons. |
+| `/volumes` | `/volumes` | Scan and list connected secondary drives, external USBs, and partitions. |
+| `/workspaces` | `/workspaces` | Display recent workspaces with one-tap switching buttons. |
+| `/sh` | `/sh <command>` | Execute a bash shell command in the current workspace (60s timeout). |
+| `/models` | `/models` | Open the interactive model selector with reasoning effort options. |
+| `/model` | `/model <name>` | Switch the active AI model directly (e.g. `/model Claude 3.7 Sonnet`). |
+| `/usage` | `/usage` | Display live quota progress bars, percentages, and reset timers. |
+| `/interactive` | `/interactive` | Switch to live PTY interactive mode with inline permission approvals. |
+| `/plain` | `/plain` | Switch back to the default streaming print mode (`stream-json`). |
+| `/stop` | `/stop` | Interrupt active commands or abort running `agy` processes. |
+| `/sleep` | `/sleep` | Put the host computer to sleep (`systemctl suspend`). |
+| `/help` | `/help` | Display the interactive command guide with quick-action buttons. |
+| `/debug` | `/debug` | Dump the raw terminal screen buffer for diagnostic inspection. |
+
+---
+
+## Troubleshooting & FAQ
+
+#### Q: The bot reports that `agy` is not found.
+Ensure `agy` is installed and in your system `PATH`. When running under systemd or cron, the `PATH` variable may differ. You can set the explicit binary location in `.env`:
+```env
+AGY_BIN="/home/arun/.local/bin/agy"
 ```
 
-or pin to a specific `--conversation <id>` returned in a previous job's
-`raw_json`.
+#### Q: Permission prompts are not showing buttons in Interactive Mode.
+Send `/debug` to view the raw terminal screen. If your version of `agy` changed the wording of permission prompts, adjust the matching regex in [agy_bot/agy/interactive_mode.py](file:///home/arun/agy-server/agy_bot/agy/interactive_mode.py#L95-L150).
 
-## Getting to your phone
+#### Q: Does this require public ports or port forwarding?
+**No.** Telegram bots use HTTP long-polling *outbound* to Telegram servers. No router ports, port forwarding, dynamic DNS, or public IPs are required.
 
-Don't port-forward this straight to the open internet — `agy` can write
-files and run shell commands on your machine, and the `X-API-Key` header is
-a shared secret, not real auth (no rate limiting, no TLS by default). Two
-reasonable options:
+#### Q: How can I run this on Windows?
+`pexpect` relies on Unix pseudo-terminals (`pty`). On Windows, run the bot inside **WSL2** (Windows Subsystem for Linux), where `agy` and Linux PTYs run natively.
 
-- **Tailscale** (or another WireGuard-based mesh VPN): install it on your
-  laptop and phone, then hit `http://<laptop-tailscale-ip>:8787` from the
-  phone. This is the option I'd start with — no exposed port at all.
-- **Cloudflare Tunnel / ngrok** with the API key still required: gives you
-  a public HTTPS URL without opening a port, but the URL is internet-facing,
-  so keep the API key secret and consider IP allowlisting if the tool
-  supports it.
+---
 
-Either way, run `uvicorn` behind HTTPS if you go past your own LAN — plain
-`X-API-Key` over HTTP means anyone on the network path can read it.
+## Contributing
 
-## About `--dangerously-skip-permissions`
+Contributions, bug reports, and feature requests are welcome!
 
-By default `agy` pauses to ask permission before writing files or running
-shell commands, and in `-p` mode without this flag it just won't perform
-those actions non-interactively. The server refuses to pass this flag
-unless you explicitly set:
+1. Fork the repository on GitHub.
+2. Create a feature branch (`git checkout -b feature/amazing-feature`).
+3. Commit your changes (`git commit -m "feat: add amazing feature"`).
+4. Push to the branch (`git push origin feature/amazing-feature`).
+5. Open a Pull Request.
 
-```bash
-export AGY_ALLOW_SKIP_PERMISSIONS=true
-```
+Please ensure your code follows standard Python conventions (PEP 8) and maintains typing annotations.
 
-...and also pass `"skip_permissions": true` in the individual request. Only
-turn this on for workspaces you don't mind an agent modifying autonomously,
-ideally under version control so you can always `git diff` / `git checkout`
-your way out.
+---
 
-## Telegram bot with live permission approval (`telegram_agy_bot.py`)
+## License
 
-This is a separate, standalone script from `server.py` -- it doesn't need
-the FastAPI server running at all. It runs `agy` in full **interactive**
-mode (not `-p`) inside a pty, uses `pyte` to render its TUI output into
-plain text, and bridges it to a Telegram chat:
-
-- Every message you send in the chat is forwarded as a keystroke into agy.
-- When agy shows a permission prompt ("Do you want to proceed?" with
-  numbered options), the bot parses it and sends you inline buttons.
-  Tapping one sends that option number back into agy.
-- Anything else agy prints, once it's been quiet for ~1.5s, gets sent to
-  you as a message. This also covers first-run prompts like the
-  "trust this folder?" question and the color-theme picker -- you just
-  reply normally, no special-casing needed for those.
-
-### Setup
-
-```bash
-pip install -r requirements.txt   # now includes python-telegram-bot + pyte
-
-# Create a bot with @BotFather on Telegram, copy the token it gives you.
-export TELEGRAM_BOT_TOKEN="123456:ABC-your-token"
-
-# Find your own numeric Telegram chat id (message @userinfobot, or check
-# the bot logs on first message) and lock the bot down to just you:
-export TELEGRAM_ALLOWED_CHAT_IDS="111111111"
-
-export AGY_DEFAULT_WORKSPACE="$HOME/agy-server-workspace"
-
-python3 telegram_agy_bot.py
-```
-
-No inbound port needs opening -- Telegram bots use long polling *outbound*
-from your laptop to Telegram's servers, so this sidesteps the whole
-"how do I expose this to my phone safely" problem from before.
-
-### Usage
-
-- `/start [workspace] [model]` -- launch an agy session, e.g.
-  `/start /home/you/some-project "Claude Opus 4.6 (Thinking)"`
-- Just type normally -- it goes straight into agy as if you'd typed it in
-  the terminal.
-- `/models` -- list available models (`agy models`).
-- `/debug` -- dump the raw current terminal screen agy is showing. Use this
-  if a permission prompt didn't trigger buttons, to see the exact text so
-  you can adjust `PERMISSION_RE` / `OPTION_LINE_RE` in the script.
-- `/stop` -- end the session.
-- `/sleep` -- put the host laptop to sleep (`systemctl suspend`).
-
-
-### Honest limitations
-
-- **Screen-scraping, not a documented API.** The bot recognizes agy's
-  current prompt wording ("Requesting permission for:", "Do you want to
-  proceed?", numbered options). If a future `agy` version changes that
-  wording or menu layout, matching breaks silently -- `/debug` is there so
-  you can see what changed and fix the regex.
-- **Only one active session per chat.** Concurrent approvals across
-  multiple simultaneous jobs aren't handled -- this assumes one
-  conversation at a time, matching how the interactive TUI itself works.
-- **`QUIET_SECONDS` (1.5s) is a guess** at how long to wait before deciding
-  agy has finished a turn. If replies arrive split into multiple Telegram
-  messages, or feel delayed, tune that constant.
-- **Restart = lost session state.** If the bot process restarts, the pty
-  and the running `agy` conversation are gone; you'll need `/start` again
-  (agy's own `--conversation <id>` / `--continue` can resume the underlying
-  conversation content once you're back in interactive mode, but this
-  script doesn't wire that up yet).
-
-## Roadmap notes (for the "full phone agent" version)
-
-- **Diffs**: already wired up via `/jobs/{id}/diff` (`git diff HEAD`). Good
-  enough as long as workspaces are git repos.
-- **Screenshots**: `agy` itself doesn't take screenshots in headless mode —
-  that's a GUI/Antigravity-2.0-app feature, not something the CLI exposes
-  over `-p`. To get screenshots from a phone client, the cleanest path is a
-  companion step: after a job finishes, if it started a local dev server,
-  run a small Playwright script against `http://127.0.0.1:<port>` and save
-  a PNG the phone can fetch via a new `/jobs/{id}/screenshot` endpoint. I
-  didn't build this yet since it depends on what each project actually
-  serves — happy to add it once you tell me the shape (e.g. "always
-  screenshot localhost:5000 if the job started a Flask app").
-- **Auth**: swap the shared-secret header for per-device tokens once you
-  have more than one phone/client talking to it.
-- **Persistence**: `JOBS` is in-memory and resets on restart — move to
-  SQLite if you want job history to survive a reboot.
+This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).

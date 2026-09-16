@@ -145,32 +145,61 @@ def find_involved_images(
     return found_paths
 
 
+import asyncio
+from telegram import error as tg_error
+
 async def send_images(
     app: Application,
     chat_id: int,
     image_paths: List[str],
 ):
+    from agy_bot.config import log
+
     for img_path in image_paths:
-        try:
-            size = os.path.getsize(img_path)
-            basename = os.path.basename(img_path)
-            if size <= 10 * 1024 * 1024:
-                with open(img_path, "rb") as f:
-                    await app.bot.send_photo(
-                        chat_id=chat_id,
-                        photo=f,
-                        caption=basename,
+        if not os.path.exists(img_path):
+            continue
+
+        basename = os.path.basename(img_path)
+        max_retries = 3
+
+        for attempt in range(max_retries):
+            try:
+                size = os.path.getsize(img_path)
+                if size <= 10 * 1024 * 1024:
+                    with open(img_path, "rb") as f:
+                        await app.bot.send_photo(
+                            chat_id=chat_id,
+                            photo=f,
+                            caption=basename,
+                        )
+                else:
+                    with open(img_path, "rb") as f:
+                        await app.bot.send_document(
+                            chat_id=chat_id,
+                            document=f,
+                            caption=f"{basename} (full resolution)",
+                        )
+                break
+            except tg_error.RetryAfter as exc:
+                log.warning("Rate limited sending image %s; sleeping %s s", img_path, exc.retry_after)
+                await asyncio.sleep(exc.retry_after + 0.5)
+            except (tg_error.TimedOut, tg_error.NetworkError) as exc:
+                if attempt < max_retries - 1:
+                    backoff = 2.0 * (attempt + 1)
+                    log.warning(
+                        "Transient error sending image %s (%s); retrying in %.1fs (attempt %d/%d)",
+                        img_path,
+                        exc,
+                        backoff,
+                        attempt + 1,
+                        max_retries,
                     )
-            else:
-                with open(img_path, "rb") as f:
-                    await app.bot.send_document(
-                        chat_id=chat_id,
-                        document=f,
-                        caption=f"{basename} (full resolution)",
-                    )
-        except Exception as exc:
-            from agy_bot.config import log
-            log.warning("Could not send image %s: %s", img_path, exc)
+                    await asyncio.sleep(backoff)
+                else:
+                    log.warning("Could not send image %s after %d attempts: %s", img_path, max_retries, exc)
+            except Exception as exc:
+                log.warning("Could not send image %s: %s", img_path, exc)
+                break
 
 
 async def send_final_response(
@@ -190,21 +219,83 @@ async def send_final_response(
     )
 
     async def _safe_send(formatted_html: str, raw_text: str):
-        try:
-            await app.bot.send_message(
-                chat_id,
-                formatted_html,
-                parse_mode=ParseMode.HTML,
-                disable_web_page_preview=True,
-            )
-        except Exception as exc:
-            log.warning("Telegram HTML send failed (%s); falling back to plain text", exc)
-            await app.bot.send_message(
-                chat_id,
-                raw_text,
-                parse_mode=None,
-                disable_web_page_preview=True,
-            )
+        html_sent = False
+        max_retries = 3
+
+        for attempt in range(max_retries):
+            try:
+                await app.bot.send_message(
+                    chat_id,
+                    formatted_html,
+                    parse_mode=ParseMode.HTML,
+                    disable_web_page_preview=True,
+                )
+                html_sent = True
+                break
+            except tg_error.RetryAfter as exc:
+                log.warning("Rate limited sending HTML message; sleeping %s s", exc.retry_after)
+                await asyncio.sleep(exc.retry_after + 0.5)
+            except (tg_error.TimedOut, tg_error.NetworkError) as exc:
+                if attempt < max_retries - 1:
+                    backoff = 1.5 * (attempt + 1)
+                    log.warning(
+                        "Telegram HTML send transient network error (%s); retrying in %.1fs (attempt %d/%d)",
+                        exc,
+                        backoff,
+                        attempt + 1,
+                        max_retries,
+                    )
+                    await asyncio.sleep(backoff)
+                else:
+                    log.warning(
+                        "Telegram HTML send timed out/failed after %d attempts (%s); falling back to plain text",
+                        max_retries,
+                        exc,
+                    )
+                    break
+            except tg_error.BadRequest as exc:
+                log.warning("Telegram HTML parse/formatting error (%s); falling back to plain text", exc)
+                break
+            except Exception as exc:
+                log.warning("Telegram HTML send unexpected error (%s); falling back to plain text", exc)
+                break
+
+        if html_sent:
+            return
+
+        for attempt in range(max_retries):
+            try:
+                await app.bot.send_message(
+                    chat_id,
+                    raw_text,
+                    parse_mode=None,
+                    disable_web_page_preview=True,
+                )
+                return
+            except tg_error.RetryAfter as exc:
+                log.warning("Rate limited sending plain text message; sleeping %s s", exc.retry_after)
+                await asyncio.sleep(exc.retry_after + 0.5)
+            except (tg_error.TimedOut, tg_error.NetworkError) as exc:
+                if attempt < max_retries - 1:
+                    backoff = 1.5 * (attempt + 1)
+                    log.warning(
+                        "Telegram plain text send transient network error (%s); retrying in %.1fs (attempt %d/%d)",
+                        exc,
+                        backoff,
+                        attempt + 1,
+                        max_retries,
+                    )
+                    await asyncio.sleep(backoff)
+                else:
+                    log.error(
+                        "Telegram plain text send failed after %d attempts: %s",
+                        max_retries,
+                        exc,
+                    )
+                    raise
+            except Exception as exc:
+                log.error("Telegram plain text send failed: %s", exc)
+                raise
 
     # Normal case.
     if len(chunks) == 1:
