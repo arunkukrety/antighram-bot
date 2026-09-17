@@ -37,7 +37,8 @@ IS_WINDOWS = sys.platform == "win32"
 
 class ProcessManager:
     """
-    Manages the lifecycle of `telegram_agy_bot.py` as a child subprocess.
+    Manages the lifecycle of the bot process (``agy_bot.main``) as a
+    child subprocess.
 
     Thread-safety contract:
       All public methods acquire ``_lock`` before touching ``_proc`` or
@@ -144,8 +145,7 @@ class ProcessManager:
             # GUI and headless bot runner depending on the argument.
             cmd = [sys.executable, '--run-bot']
         else:
-            script = self._dir / "telegram_agy_bot.py"
-            cmd = [str(self._python), str(script)]
+            cmd = [str(self._python), "-m", "agy_bot.main"]
 
         kwargs: dict = dict(
             args=cmd,
@@ -169,7 +169,7 @@ class ProcessManager:
             kwargs["start_new_session"] = True  # detach from parent's session
 
         # NOTE: caller (start) already holds _lock — do not re-acquire (Lock is not reentrant)
-        label = " (bundled mode)" if getattr(sys, 'frozen', False) else f" {script}"
+        label = " (bundled mode)" if getattr(sys, 'frozen', False) else " -m agy_bot.main"
         self._log_buffer.append(f"[GUI] Starting bot … ({self._python}{label})")
 
         return subprocess.Popen(**kwargs)

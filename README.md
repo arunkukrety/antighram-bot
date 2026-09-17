@@ -200,7 +200,6 @@ telegram-anti-gravity-bot/
 │   ├── startup.py                   # Start-on-login (registry / XDG autostart)
 │   └── tray_image.py                # Programmatic tray icon rendering
 ├── gui_app.py                       # Desktop app entrypoint (GUI or --run-bot headless)
-├── telegram_agy_bot.py              # Backward-compatible bot entrypoint shim
 ├── antigravity_bot.spec             # PyInstaller build spec
 ├── build.py                         # One-file executable build script
 ├── install.sh / install.bat         # Dev installers (Linux / Windows)
@@ -288,8 +287,6 @@ Launch the bot directly:
 
 ```bash
 python -m agy_bot.main
-# Or use the entrypoint shim:
-python telegram_agy_bot.py
 ```
 
 Open your bot in Telegram and send `/start` or `/help`!
