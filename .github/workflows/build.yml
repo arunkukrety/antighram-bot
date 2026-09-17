@@ -81,7 +81,7 @@ jobs:
       - name: Rename artifact (Windows)
         if: runner.os == 'Windows'
         run: |
-          Rename-Item dist\AntigravityBot.exe dist\AntigravityBot-windows-x86_64.exe
+          Rename-Item -Path dist\AntigravityBot.exe -NewName "AntigravityBot-windows-x86_64.exe"
         shell: pwsh
 
       # ── 8. Upload build artifact ────────────────────────────────────────────
