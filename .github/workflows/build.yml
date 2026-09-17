@@ -12,6 +12,9 @@ on:
 permissions:
   contents: write   # needed to create GitHub Releases and upload assets
 
+env:
+  PYTHONIOENCODING: utf-8   # build.py prints Unicode glyphs (banner, ✔/✗)
+
 jobs:
   # ──────────────────────────────────────────────────────────────────────────
   # Build matrix: runs on Linux and Windows simultaneously

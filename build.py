@@ -19,6 +19,14 @@ import shutil
 import subprocess
 from pathlib import Path
 
+# ── Force UTF-8 output so the fancy banner doesn't crash on Windows
+#    consoles (cp1252) or CI runners without PYTHONIOENCODING set. ──────────
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 ROOT  = Path(__file__).parent.resolve()
 DIST  = ROOT / "dist"
 BUILD = ROOT / "build"
