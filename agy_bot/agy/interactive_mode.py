@@ -8,7 +8,7 @@ import re
 import time
 from typing import List, Optional
 
-import pexpect
+from agy_bot import pty_compat
 import pyte
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application
@@ -40,7 +40,7 @@ def spawn_interactive_agy(
             "--continue",
         ]
 
-    return pexpect.spawn(
+    return pty_compat.spawn(
         AGY_BIN,
         args=args,
         cwd=workspace,
@@ -189,10 +189,10 @@ async def interactive_reader_loop(
 
                     state.dirty = True
 
-            except pexpect.TIMEOUT:
+            except pty_compat.TIMEOUT:
                 pass
 
-            except pexpect.EOF:
+            except pty_compat.EOF:
 
                 await app.bot.send_message(
                     session.chat_id,

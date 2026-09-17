@@ -6,9 +6,8 @@ import asyncio
 import html
 import json
 import time
-from typing import List, Optional
 
-import pexpect
+from agy_bot import pty_compat
 from telegram import error as tg_error
 from telegram.ext import Application
 from telegram.constants import ChatAction, ParseMode
@@ -62,7 +61,7 @@ def run_stream_print_mode_sync(
         "Starting agy stream-json"
     )
 
-    child = pexpect.spawn(
+    child = pty_compat.spawn(
         cmd[0],
         args=cmd[1:],
         cwd=session.workspace,
@@ -130,11 +129,11 @@ def run_stream_print_mode_sync(
                             line,
                         )
 
-            except pexpect.TIMEOUT:
+            except pty_compat.TIMEOUT:
 
                 raise
 
-            except pexpect.EOF:
+            except pty_compat.EOF:
 
                 break
 
@@ -525,7 +524,7 @@ async def handle_print_message(
                     disable_web_page_preview=True,
                 )
 
-    except pexpect.TIMEOUT:
+    except pty_compat.TIMEOUT:
 
         if status_message:
 

@@ -3,7 +3,6 @@ Image detection, deduplication, and sending.
 """
 
 import hashlib
-import html
 import os
 import re
 import urllib.parse

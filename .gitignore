@@ -1,7 +1,26 @@
+# Secrets / local config
 .env
+
+# Python
 .venv/
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# PyInstaller build artifacts
+build/
+dist/
+*.manifest
+
+# Logs / backups
 *.log
 *.bak
+
+# OS cruft
+Thumbs.db
+.DS_Store
+desktop.ini

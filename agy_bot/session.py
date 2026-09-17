@@ -5,9 +5,8 @@ Session state: dataclasses and global SESSIONS registry.
 import asyncio
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-import pexpect
 import pyte
 
 
@@ -19,7 +18,7 @@ class PendingPermission:
 
 @dataclass
 class InteractiveState:
-    child: pexpect.spawn
+    child: Any
     screen: pyte.Screen
     stream: pyte.Stream
 

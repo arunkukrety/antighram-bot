@@ -5,7 +5,9 @@ agy_bot/health/health.py — Service, host system, and agy AI engine health chec
 import html
 import os
 import platform
-import resource
+
+if os.name == "posix":
+    import resource
 import shutil
 import time
 from typing import Optional, Tuple

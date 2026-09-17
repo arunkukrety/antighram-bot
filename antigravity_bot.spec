@@ -63,7 +63,10 @@ hidden_imports = [
     "uvicorn.lifespan.on",
     # pexpect (Linux) / pyte
     "pexpect",
+    "pexpect.exceptions",
     "pyte",
+    # ConPTY backend for Windows PTY support (agy_bot.pty_compat)
+    "winpty",
     # dotenv
     "dotenv",
     "dotenv.main",
@@ -121,7 +124,17 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=not IS_WIN,       # strip symbols on Linux to reduce size
     upx=True,               # compress with UPX if available (reduces size ~30%)
-    upx_exclude=[],
+    upx_exclude=[
+        "tk86t.dll",
+        "tcl86t.dll",
+        "tk86.dll",
+        "tcl86.dll",
+        "zlib1.dll",
+        "python3.dll",
+        "python311.dll",
+        "python312.dll",
+        "python313.dll",
+    ],
     runtime_tmpdir=None,
     # No console window — this is a GUI/tray app
     console=False,

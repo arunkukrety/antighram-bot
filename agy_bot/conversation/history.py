@@ -7,7 +7,7 @@ import json
 import os
 import re
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 

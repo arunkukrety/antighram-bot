@@ -42,7 +42,7 @@ Traditional approaches like web servers or SSH require public IP addresses, dyna
 
 **Telegram Antigravity Bot** eliminates these hurdles:
 - **Outbound Long Polling**: The bot connects *outward* to Telegram's HTTPS servers. It works seamlessly behind home NATs, mobile hotspots, firewalls, and university/corporate networks without exposing any local ports.
-- **PTY Terminal Emulation**: Avoids known CLI subprocess hanging bugs by allocating pseudo-terminals (`pexpect`), ensuring `agy` behaves exactly as it would in an interactive terminal.
+- **PTY Terminal Emulation**: Avoids known CLI subprocess hanging bugs by allocating pseudo-terminals — `pexpect` on Linux/macOS and native ConPTY (`pywinpty`) on Windows — ensuring `agy` behaves exactly as it would in an interactive terminal.
 - **Mobile-First UX**: Complex terminal flows—such as permission approvals, model selections, workspace switching, and file browsing—are converted into interactive Telegram buttons and formatted messages.
 
 ---
@@ -63,7 +63,7 @@ Traditional approaches like web servers or SSH require public IP addresses, dyna
    - **Clean Teardown**: Automatically cleans up temporary status messages when the final response is delivered.
 
 2. **Interactive PTY Mode (`/interactive`)**
-   - Runs `agy` in full interactive mode inside an emulated pseudo-terminal (`pexpect` + `pyte`).
+   - Runs `agy` in full interactive mode inside an emulated pseudo-terminal (`pexpect` + `pyte` on POSIX, ConPTY via `pywinpty` + `pyte` on Windows).
    - **Smart Permission Interception**: Detects interactive prompts (e.g. `Do you want to proceed? Requesting permission for: ...`) and renders inline action buttons (`1. Allow`, `2. Reject`, etc.). Tapping an inline button instantly writes the response back to the PTY.
    - **Quiet-Screen Detection**: Intelligently buffers and forwards terminal output once the agent has been quiet for 1.5 seconds.
    - **Direct Input**: Regular text messages sent in chat are passed directly to the interactive session.
@@ -131,7 +131,7 @@ Traditional approaches like web servers or SSH require public IP addresses, dyna
 - **Session Interruption (`/stop`)**:
   - Interrupts running `agy` processes or cancels the active session.
 - **Remote Laptop Sleep (`/sleep`)**:
-  - Suspends the host laptop (`systemctl suspend`) directly from Telegram when you step away, with clear safety and wake-up guidance.
+  - Suspends the host laptop (`systemctl suspend` on Linux, `SetSuspendState` on Windows) directly from Telegram when you step away, with clear safety and wake-up guidance.
 - **Diagnostic Screen Dump (`/debug`)**:
   - Dumps the raw PTY screen buffer to verify what the terminal is displaying.
 - **Native Telegram Command Menu**:
@@ -152,12 +152,22 @@ Traditional approaches like web servers or SSH require public IP addresses, dyna
 The codebase is organized into modular packages:
 
 ```text
-agy-server/
-├── agy_bot/                         # Core Python package
+telegram-anti-gravity-bot/
+├── agy_bot/                         # Core bot package (server)
 │   ├── agy/                         # agy process runners
 │   │   ├── interactive_mode.py      # PTY spawner, pyte screen, quiet handler, permissions
 │   │   ├── print_mode.py            # stream-json runner, live quote preview, rate-limiting
 │   │   └── status.py                # Stream event to status text & tool indicator mapping
+│   ├── handlers/                    # Telegram command & callback handlers (by feature)
+│   │   ├── session_cmds.py          # /start /new /stop /sleep + text router
+│   │   ├── workspace.py             # /workspaces /pwd /cd /default /set_default
+│   │   ├── browse.py                # /browse /volumes + br:* callbacks
+│   │   ├── shell.py                 # /sh desktop shell execution
+│   │   ├── modes.py                 # /help /interactive /plain /debug + permission buttons
+│   │   ├── models.py                # /model /models + model pickers
+│   │   ├── usage.py                 # /usage quota panel
+│   │   ├── conversations.py         # /conversations + resume
+│   │   └── routing.py               # callback router + global error handler
 │   ├── browse/                      # File browser components
 │   │   └── markup.py                # Interactive directory browser inline keyboard builder
 │   ├── conversation/                # Conversation state & tracking
@@ -176,10 +186,27 @@ agy-server/
 │   │   ├── resolver.py              # Fuzzy path resolution & default workspace config
 │   │   └── volumes.py               # External drive & partition detection via lsblk
 │   ├── config.py                    # Environment variables, logging, constants
-│   ├── main.py                      # Application entrypoint & Telegram handlers
-│   └── session.py                   # ChatSession and InteractiveState dataclasses
-├── telegram_agy_bot.py              # Backward-compatible entrypoint shim
-├── requirements.txt                 # Python package dependencies
+│   ├── main.py                      # Application entrypoint & handler registration
+│   ├── process_manager.py           # Cross-platform bot subprocess lifecycle (GUI mode)
+│   ├── pty_compat.py                # Cross-platform PTY spawn (pexpect POSIX / ConPTY Windows)
+│   ├── session.py                   # ChatSession and InteractiveState dataclasses
+│   └── state.py                     # Shared startup state (default workspace)
+├── gui/                             # Desktop control-center package (CustomTkinter)
+│   ├── app_window.py                # AgyBotApp: tray icon, status/config/logs tabs
+│   ├── setup_wizard.py              # First-run credential wizard
+│   ├── constants.py                 # Palette, geometry, app metadata
+│   ├── env_store.py                 # .env read/write helpers
+│   ├── paths.py                     # Frozen (exe) vs dev path resolution
+│   ├── startup.py                   # Start-on-login (registry / XDG autostart)
+│   └── tray_image.py                # Programmatic tray icon rendering
+├── gui_app.py                       # Desktop app entrypoint (GUI or --run-bot headless)
+├── telegram_agy_bot.py              # Backward-compatible bot entrypoint shim
+├── antigravity_bot.spec             # PyInstaller build spec
+├── build.py                         # One-file executable build script
+├── install.sh / install.bat         # Dev installers (Linux / Windows)
+├── .github/workflows/build.yml      # CI: builds & publishes release binaries
+├── requirements.txt                 # Bot dependencies
+├── requirements-gui.txt             # Desktop app dependencies
 ├── .env.example                     # Environment template file
 └── README.md                        # Project documentation
 ```
@@ -188,8 +215,8 @@ agy-server/
 
 ## Prerequisites
 
-1. **Linux or macOS** (x86_64 or ARM64)
-   *Note: Native Windows is not supported due to PTY requirements. Windows users can run this seamlessly inside WSL2.*
+1. **Linux, macOS, or native Windows 10 (1809+) / 11**
+   *On Windows, pseudo-terminals are provided natively via ConPTY (`pywinpty`) — no WSL required (WSL2 also works if you prefer it).*
 2. **Python 3.10+**
 3. **Antigravity CLI (`agy`)** installed and authenticated on the host machine:
    ```bash
@@ -266,6 +293,37 @@ python telegram_agy_bot.py
 ```
 
 Open your bot in Telegram and send `/start` or `/help`!
+
+---
+
+## Desktop Control Center (Tray App)
+
+A cross-platform system-tray app manages the bot server as a subprocess —
+power toggle, live logs, config editor, first-run setup wizard, and
+start-on-login — no terminal needed.
+
+```bash
+pip install -r requirements.txt -r requirements-gui.txt
+python gui_app.py
+```
+
+The window starts hidden: look for the ✦ icon in the system tray
+(left-click = open panel, right-click = menu).
+
+| Platform | Config (.env) location |
+| :--- | :--- |
+| Windows | `%APPDATA%\AntigravityBot\.env` |
+| Linux/macOS | `~/.config/agy-telegram-bot/.env` |
+
+### Building a standalone executable
+
+```bash
+python build.py          # → dist/AntigravityBot.exe (Windows)
+```
+
+Uses PyInstaller (single-file). Pushing a `v*.*.*` tag triggers the
+GitHub Actions workflow, which builds and uploads Windows & Linux
+binaries to GitHub Releases.
 
 ---
 
@@ -348,7 +406,7 @@ journalctl -u agy-bot.service -f
 | `/browse` | `/browse [path]` | Open the interactive visual directory browser with navigation buttons. |
 | `/volumes` | `/volumes` | Scan and list connected secondary drives, external USBs, and partitions. |
 | `/workspaces` | `/workspaces` | Display recent workspaces with one-tap switching buttons. |
-| `/sh` | `/sh <command>` | Execute a bash shell command in the current workspace (60s timeout). |
+| `/sh` | `/sh <command>` | Execute a shell command (bash on POSIX, default shell on Windows) in the current workspace (60s timeout). |
 | `/models` | `/models` | Open the interactive model selector with reasoning effort options. |
 | `/model` | `/model <name>` | Switch the active AI model directly (e.g. `/model Claude 3.7 Sonnet`). |
 | `/usage` | `/usage` | Display live quota progress bars, percentages, and reset timers. |
@@ -370,13 +428,13 @@ AGY_BIN="/home/arun/.local/bin/agy"
 ```
 
 #### Q: Permission prompts are not showing buttons in Interactive Mode.
-Send `/debug` to view the raw terminal screen. If your version of `agy` changed the wording of permission prompts, adjust the matching regex in [agy_bot/agy/interactive_mode.py](file:///home/arun/agy-server/agy_bot/agy/interactive_mode.py#L95-L150).
+Send `/debug` to view the raw terminal screen. If your version of `agy` changed the wording of permission prompts, adjust the matching regex in [`agy_bot/agy/interactive_mode.py`](agy_bot/agy/interactive_mode.py).
 
 #### Q: Does this require public ports or port forwarding?
 **No.** Telegram bots use HTTP long-polling *outbound* to Telegram servers. No router ports, port forwarding, dynamic DNS, or public IPs are required.
 
 #### Q: How can I run this on Windows?
-`pexpect` relies on Unix pseudo-terminals (`pty`). On Windows, run the bot inside **WSL2** (Windows Subsystem for Linux), where `agy` and Linux PTYs run natively.
+It runs **natively** — the bot uses Windows ConPTY (via `pywinpty`) for pseudo-terminals, and `agy.exe` works out of the box. Alternatively, run everything inside WSL2 as before. Prebuilt desktop executables are published on the [Releases](../../releases) page.
 
 ---
 

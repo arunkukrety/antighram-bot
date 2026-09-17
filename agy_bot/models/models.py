@@ -6,11 +6,11 @@ import html
 import re
 import time
 import asyncio
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from agy_bot.config import AGY_BIN, log
+from agy_bot.config import AGY_BIN
 from agy_bot.workspace.resolver import get_default_workspace
 
 

@@ -168,10 +168,9 @@ class ProcessManager:
         else:
             kwargs["start_new_session"] = True  # detach from parent's session
 
-        with self._lock:
-            self._log_buffer.append(
-                f"[GUI] Starting bot … ({self._python} {script})"
-            )
+        # NOTE: caller (start) already holds _lock — do not re-acquire (Lock is not reentrant)
+        label = " (bundled mode)" if getattr(sys, 'frozen', False) else f" {script}"
+        self._log_buffer.append(f"[GUI] Starting bot … ({self._python}{label})")
 
         return subprocess.Popen(**kwargs)
 
@@ -179,7 +178,6 @@ class ProcessManager:
         """Terminate a process gracefully, then forcefully."""
         try:
             if IS_WINDOWS:
-                import ctypes
                 # Send CTRL_BREAK to the process group for clean shutdown
                 try:
                     proc.send_signal(signal.CTRL_BREAK_EVENT)
