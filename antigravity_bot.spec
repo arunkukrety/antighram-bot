@@ -123,18 +123,9 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=not IS_WIN,       # strip symbols on Linux to reduce size
-    upx=True,               # compress with UPX if available (reduces size ~30%)
-    upx_exclude=[
-        "tk86t.dll",
-        "tcl86t.dll",
-        "tk86.dll",
-        "tcl86.dll",
-        "zlib1.dll",
-        "python3.dll",
-        "python311.dll",
-        "python312.dll",
-        "python313.dll",
-    ],
+    # NOTE: UPX is deliberately disabled — CI UPX 5.x hard-fails on random
+    # .pyd files (e.g. _uuid.pyd) and compressed Tcl/Tk DLLs break at runtime.
+    upx=False,
     runtime_tmpdir=None,
     # No console window — this is a GUI/tray app
     console=False,

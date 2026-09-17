@@ -57,14 +57,7 @@ jobs:
             libxcb-util1 \
             libayatana-appindicator3-1 \
             gir1.2-ayatanaappindicator3-0.1 \
-            libgtk-3-0 \
-            upx-ucl
-
-      # ── 4. Install Windows UPX (compressor) ────────────────────────────────
-      - name: Install UPX (Windows)
-        if: runner.os == 'Windows'
-        run: choco install upx --no-progress -y
-        shell: pwsh
+            libgtk-3-0
 
       # ── 5. Install Python dependencies ─────────────────────────────────────
       - name: Install Python dependencies
