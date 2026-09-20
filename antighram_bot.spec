@@ -1,8 +1,8 @@
-# antigravity_bot.spec
-# PyInstaller spec file for building the Antigravity Bot standalone executable.
+# antighram_bot.spec
+# PyInstaller spec file for building the Antighram Bot standalone executable.
 #
 # Build with:  python build.py
-# Or directly: pyinstaller antigravity_bot.spec
+# Or directly: pyinstaller antighram_bot.spec
 
 import sys
 from pathlib import Path
@@ -119,7 +119,7 @@ exe = EXE(
     a.datas,
     [],
     # Output name differs by platform for clear GitHub Release filenames
-    name="AntigravityBot" if IS_WIN else "AntigravityBot-linux",
+    name="AntighramBot" if IS_WIN else "AntighramBot-linux",
     debug=False,
     bootloader_ignore_signals=False,
     strip=not IS_WIN,       # strip symbols on Linux to reduce size

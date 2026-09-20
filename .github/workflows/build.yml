@@ -25,12 +25,12 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: AntigravityBot-linux
-            asset_label: AntigravityBot-linux-x86_64
+            artifact_name: AntighramBot-linux
+            asset_label: AntighramBot-linux-x86_64
 
           - os: windows-latest
-            artifact_name: AntigravityBot.exe
-            asset_label: AntigravityBot-windows-x86_64.exe
+            artifact_name: AntighramBot.exe
+            asset_label: AntighramBot-windows-x86_64.exe
 
     runs-on: ${{ matrix.os }}
 
@@ -75,13 +75,13 @@ jobs:
       - name: Rename artifact (Linux)
         if: runner.os == 'Linux'
         run: |
-          mv dist/AntigravityBot-linux dist/AntigravityBot-linux-x86_64
-          chmod +x dist/AntigravityBot-linux-x86_64
+          mv dist/AntighramBot-linux dist/AntighramBot-linux-x86_64
+          chmod +x dist/AntighramBot-linux-x86_64
 
       - name: Rename artifact (Windows)
         if: runner.os == 'Windows'
         run: |
-          Rename-Item -Path dist\AntigravityBot.exe -NewName "AntigravityBot-windows-x86_64.exe"
+          Rename-Item -Path dist\AntighramBot.exe -NewName "AntighramBot-windows-x86_64.exe"
         shell: pwsh
 
       # ── 8. Upload build artifact ────────────────────────────────────────────
@@ -105,29 +105,29 @@ jobs:
       - name: Download Linux artifact
         uses: actions/download-artifact@v4
         with:
-          name: AntigravityBot-linux-x86_64
+          name: AntighramBot-linux-x86_64
           path: release/
 
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
-          name: AntigravityBot-windows-x86_64.exe
+          name: AntighramBot-windows-x86_64.exe
           path: release/
 
       # ── Create the release and upload files ──────────────────────────────────
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "Antigravity Bot ${{ github.ref_name }}"
+          name: "Antighram Bot ${{ github.ref_name }}"
           draft: false
           prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
           files: |
-            release/AntigravityBot-linux-x86_64
-            release/AntigravityBot-windows-x86_64.exe
+            release/AntighramBot-linux-x86_64
+            release/AntighramBot-windows-x86_64.exe
           body: |
-            ## 🤖 Antigravity Telegram Bot ${{ github.ref_name }}
+            ## 🤖 Antighram Bot ${{ github.ref_name }}
 
-            A plug-and-play desktop tray app to manage your Antigravity Telegram Bot server.
+            A plug-and-play desktop tray app to manage your Antighram Bot server.
             No Python installation required.
 
             ---
@@ -136,8 +136,8 @@ jobs:
 
             | Platform | File | Notes |
             |---|---|---|
-            | 🪟 Windows | `AntigravityBot-windows-x86_64.exe` | Double-click to run |
-            | 🐧 Linux | `AntigravityBot-linux-x86_64` | Run `chmod +x` first, then double-click or `./AntigravityBot-linux-x86_64` |
+            | 🪟 Windows | `AntighramBot-windows-x86_64.exe` | Double-click to run |
+            | 🐧 Linux | `AntighramBot-linux-x86_64` | Run `chmod +x` first, then double-click or `./AntighramBot-linux-x86_64` |
 
             ---
 

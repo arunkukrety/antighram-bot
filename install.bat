@@ -1,6 +1,6 @@
 @echo off
 REM =============================================================================
-REM install.bat — Antigravity Telegram Bot Desktop App Installer (Windows)
+REM install.bat — Antighram Bot Desktop App Installer (Windows)
 REM =============================================================================
 REM Double-click to run, or execute from Command Prompt / PowerShell.
 REM
@@ -22,7 +22,7 @@ set "STARTMENU=%APPDATA%\Microsoft\Windows\Start Menu\Programs"
 
 echo.
 echo  ============================================
-echo     Antigravity Telegram Bot Installer
+echo     Antighram Bot Installer
 echo  ============================================
 echo.
 
@@ -89,29 +89,29 @@ set "GUI_SCRIPT=%SCRIPT_DIR%\gui_app.py"
 REM Use PowerShell to create a proper .lnk shortcut
 powershell -NoProfile -Command ^
   "$ws = New-Object -ComObject WScript.Shell; ^
-   $s = $ws.CreateShortcut('%DESKTOP%\Antigravity Bot.lnk'); ^
+   $s = $ws.CreateShortcut('%DESKTOP%\Antighram Bot.lnk'); ^
    $s.TargetPath = '%PYTHONW%'; ^
    $s.Arguments = '\"%GUI_SCRIPT%\"'; ^
    $s.WorkingDirectory = '%SCRIPT_DIR%'; ^
-   $s.Description = 'Antigravity Telegram Bot Control Center'; ^
+   $s.Description = 'Antighram Bot Control Center'; ^
    $s.IconLocation = '%PYTHONW%'; ^
    $s.Save()"
 
-if exist "%DESKTOP%\Antigravity Bot.lnk" (
+if exist "%DESKTOP%\Antighram Bot.lnk" (
     echo       Desktop shortcut created.
 ) else (
     echo       Warning: Desktop shortcut could not be created.
 )
 
 REM Start Menu shortcut
-if not exist "%STARTMENU%\Antigravity Bot" mkdir "%STARTMENU%\Antigravity Bot"
+if not exist "%STARTMENU%\Antighram Bot" mkdir "%STARTMENU%\Antighram Bot"
 powershell -NoProfile -Command ^
   "$ws = New-Object -ComObject WScript.Shell; ^
-   $s = $ws.CreateShortcut('%STARTMENU%\Antigravity Bot\Antigravity Bot.lnk'); ^
+   $s = $ws.CreateShortcut('%STARTMENU%\Antighram Bot\Antighram Bot.lnk'); ^
    $s.TargetPath = '%PYTHONW%'; ^
    $s.Arguments = '\"%GUI_SCRIPT%\"'; ^
    $s.WorkingDirectory = '%SCRIPT_DIR%'; ^
-   $s.Description = 'Antigravity Telegram Bot Control Center'; ^
+   $s.Description = 'Antighram Bot Control Center'; ^
    $s.Save()"
 
 echo       Start Menu entry created.
@@ -123,7 +123,7 @@ echo     Installation complete!
 echo  ============================================
 echo.
 echo   Launch the bot control center:
-echo     - Double-click "Antigravity Bot" on your Desktop
+echo     - Double-click "Antighram Bot" on your Desktop
 echo     - Or run: python gui_app.py  (from project folder)
 echo.
 echo   The app will minimize to the system tray.

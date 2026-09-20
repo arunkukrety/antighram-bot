@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-build.py — Local PyInstaller build script for Antigravity Bot.
+build.py — Local PyInstaller build script for Antighram Bot.
 
 Produces a single-file standalone executable for the current platform:
-  Windows → dist/AntigravityBot.exe
-  Linux   → dist/AntigravityBot-linux
+  Windows → dist/AntighramBot.exe
+  Linux   → dist/AntighramBot-linux
 
 Usage:
     python build.py              # build
@@ -30,7 +30,7 @@ for _stream in (sys.stdout, sys.stderr):
 ROOT  = Path(__file__).parent.resolve()
 DIST  = ROOT / "dist"
 BUILD = ROOT / "build"
-SPEC  = ROOT / "antigravity_bot.spec"
+SPEC  = ROOT / "antighram_bot.spec"
 
 GREEN = "\033[32m"
 RED   = "\033[31m"
@@ -40,7 +40,7 @@ RESET = "\033[0m"
 
 def banner():
     print(f"\n{CYAN}╔══════════════════════════════════════╗")
-    print(f"║   Antigravity Bot — PyInstaller Build  ║")
+    print(f"║   Antighram Bot — PyInstaller Build  ║")
     print(f"╚══════════════════════════════════════╝{RESET}\n")
 
 def step(msg: str):  print(f"{CYAN}==> {RESET}{msg}")
@@ -95,7 +95,7 @@ def build():
         err("PyInstaller failed — check output above for details.")
 
     # Locate output
-    outputs = list(DIST.glob("AntigravityBot*"))
+    outputs = list(DIST.glob("AntighramBot*"))
     if not outputs:
         err(f"No output found in {DIST}")
 

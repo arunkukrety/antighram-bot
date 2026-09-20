@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# install.sh — Antigravity Telegram Bot Desktop App Installer (Linux)
+# install.sh — Antighram Bot Desktop App Installer (Linux)
 # =============================================================================
 # Usage:
 #   bash install.sh
@@ -10,7 +10,7 @@
 #   2. Installs all bot + GUI dependencies
 #   3. Prompts for Telegram credentials if .env is missing
 #   4. Creates a ~/.local/share/applications launcher (.desktop file)
-#   5. Creates ~/.local/bin/agy-bot shortcut command
+#   5. Creates ~/.local/bin/antighram shortcut command
 # =============================================================================
 
 set -e
@@ -29,7 +29,7 @@ NC='\033[0m' # No Color
 banner() {
   echo ""
   echo -e "${BLUE}╔══════════════════════════════════════════════╗${NC}"
-  echo -e "${BLUE}║     Antigravity Telegram Bot Installer       ║${NC}"
+  echo -e "${BLUE}║            Antighram Bot Installer           ║${NC}"
   echo -e "${BLUE}╚══════════════════════════════════════════════╝${NC}"
   echo ""
 }
@@ -95,21 +95,21 @@ fi
 # ── 5. Desktop launcher ────────────────────────────────────────────────────
 step "Creating application launcher..."
 mkdir -p "$DESKTOP_DIR"
-cat > "$DESKTOP_DIR/agy-bot.desktop" <<DESKTOPEOF
+cat > "$DESKTOP_DIR/antighram.desktop" <<DESKTOPEOF
 [Desktop Entry]
-Name=Antigravity Bot
+Name=Antighram Bot
 GenericName=Telegram Bot Server
-Comment=Control the Antigravity Telegram Bot server
+Comment=Control the Antighram Bot server
 Exec=$PYTHON $SCRIPT_DIR/gui_app.py
 Icon=utilities-terminal
 Terminal=false
 Type=Application
 Categories=Network;Utility;
-Keywords=telegram;bot;antigravity;
+Keywords=telegram;bot;antighram;
 StartupNotify=true
 DESKTOPEOF
-chmod +x "$DESKTOP_DIR/agy-bot.desktop"
-ok "Created ~/.local/share/applications/agy-bot.desktop"
+chmod +x "$DESKTOP_DIR/antighram.desktop"
+ok "Created ~/.local/share/applications/antighram.desktop"
 
 # Update desktop database if available
 if command -v update-desktop-database &>/dev/null; then
@@ -117,15 +117,15 @@ if command -v update-desktop-database &>/dev/null; then
 fi
 
 # ── 6. Global command alias ────────────────────────────────────────────────
-step "Installing 'agy-bot' command..."
+step "Installing 'antighram' command..."
 mkdir -p "$BIN_DIR"
-cat > "$BIN_DIR/agy-bot" <<CMDEOF
+cat > "$BIN_DIR/antighram" <<CMDEOF
 #!/usr/bin/env bash
-# Antigravity Bot Desktop GUI launcher
+# Antighram Bot Desktop GUI launcher
 exec "$PYTHON" "$SCRIPT_DIR/gui_app.py" "\$@"
 CMDEOF
-chmod +x "$BIN_DIR/agy-bot"
-ok "Installed: agy-bot"
+chmod +x "$BIN_DIR/antighram"
+ok "Installed: antighram"
 
 # Ensure ~/.local/bin is in PATH
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
@@ -144,9 +144,9 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 echo "  Launch the control panel with any of these:"
 echo ""
-echo -e "  ${BLUE}agy-bot${NC}                   (command line)"
+echo -e "  ${BLUE}antighram${NC}                  (command line)"
 echo -e "  ${BLUE}python gui_app.py${NC}          (from project directory)"
-echo -e "  ${BLUE}App Menu → Antigravity Bot${NC} (desktop launcher)"
+echo -e "  ${BLUE}App Menu → Antighram Bot${NC}   (desktop launcher)"
 echo ""
 echo "  The app will appear in your system tray."
 echo "  Left-click the tray icon to open the control panel."
