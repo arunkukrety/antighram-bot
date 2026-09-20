@@ -1,4 +1,8 @@
-# Telegram Antigravity Bot
+<p align="center">
+  <img src="https://antigrham.vercel.app/assets/telegram-antigravity-logo-D1hdGmSE.svg" alt="Antighram Bot logo" width="160">
+</p>
+
+<h1 align="center">Antighram Bot</h1>
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -40,7 +44,7 @@ Running autonomous coding agents like Antigravity on your local machine or works
 
 Traditional approaches like web servers or SSH require public IP addresses, dynamic DNS, complex firewall routing, or VPN clients. 
 
-**Telegram Antigravity Bot** eliminates these hurdles:
+**Antighram Bot** eliminates these hurdles:
 - **Outbound Long Polling**: The bot connects *outward* to Telegram's HTTPS servers. It works seamlessly behind home NATs, mobile hotspots, firewalls, and university/corporate networks without exposing any local ports.
 - **PTY Terminal Emulation**: Avoids known CLI subprocess hanging bugs by allocating pseudo-terminals — `pexpect` on Linux/macOS and native ConPTY (`pywinpty`) on Windows — ensuring `agy` behaves exactly as it would in an interactive terminal.
 - **Mobile-First UX**: Complex terminal flows—such as permission approvals, model selections, workspace switching, and file browsing—are converted into interactive Telegram buttons and formatted messages.
@@ -98,7 +102,7 @@ Traditional approaches like web servers or SSH require public IP addresses, dyna
 - **Smart Workspace Resolution (`/cd <path>`)**:
   - Resolves absolute paths, user-expanded paths (`~/...`), paths relative to the current workspace, paths relative to `$HOME`, or fuzzy matches against recent directory names.
 - **Persistent Defaults (`/default`, `/set_default <path>`)**:
-  - View or permanently save your default workspace across restarts in `~/.agy-telegram-config.json`.
+  - View or permanently save your default workspace across restarts in `~/.antighram-config.json`.
 - **Recent Workspaces (`/workspaces`)**:
   - View and switch between your most recently used workspaces with quick-select buttons.
 - **Conversation Resumption (`/conversations` or `/history`)**:
@@ -152,7 +156,7 @@ Traditional approaches like web servers or SSH require public IP addresses, dyna
 The codebase is organized into modular packages:
 
 ```text
-telegram-anti-gravity-bot/
+antighram-bot/
 ├── agy_bot/                         # Core bot package (server)
 │   ├── agy/                         # agy process runners
 │   │   ├── interactive_mode.py      # PTY spawner, pyte screen, quiet handler, permissions
@@ -200,7 +204,7 @@ telegram-anti-gravity-bot/
 │   ├── startup.py                   # Start-on-login (registry / XDG autostart)
 │   └── tray_image.py                # Programmatic tray icon rendering
 ├── gui_app.py                       # Desktop app entrypoint (GUI or --run-bot headless)
-├── antigravity_bot.spec             # PyInstaller build spec
+├── antighram_bot.spec               # PyInstaller build spec
 ├── build.py                         # One-file executable build script
 ├── install.sh / install.bat         # Dev installers (Linux / Windows)
 ├── .github/workflows/build.yml      # CI: builds & publishes release binaries
@@ -231,8 +235,8 @@ telegram-anti-gravity-bot/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/arunkukrety/telegram-anti-gravity-bot.git
-cd telegram-anti-gravity-bot
+git clone https://github.com/arunkukrety/antighram-bot.git
+cd antighram-bot
 ```
 
 ### 2. Create a Virtual Environment & Install Dependencies
@@ -309,13 +313,13 @@ The window starts hidden: look for the ✦ icon in the system tray
 
 | Platform | Config (.env) location |
 | :--- | :--- |
-| Windows | `%APPDATA%\AntigravityBot\.env` |
-| Linux/macOS | `~/.config/agy-telegram-bot/.env` |
+| Windows | `%APPDATA%\AntighramBot\.env` |
+| Linux/macOS | `~/.config/antighram-bot/.env` |
 
 ### Building a standalone executable
 
 ```bash
-python build.py          # → dist/AntigravityBot.exe (Windows)
+python build.py          # → dist/AntighramBot.exe (Windows)
 ```
 
 Uses PyInstaller (single-file). Pushing a `v*.*.*` tag triggers the
@@ -335,9 +339,9 @@ binaries to GitHub Releases.
 | `AGY_PRINT_TIMEOUT` | Integer| `300` | Timeout in seconds for `--output-format stream-json` runs. |
 
 Persistent runtime settings are saved to:
-- Bot configuration: `~/.agy-telegram-config.json`
-- Recent workspaces: `~/.agy-telegram-workspaces.json`
-- Conversation history: `~/.agy-telegram-conversations.json`
+- Bot configuration: `~/.antighram-config.json`
+- Recent workspaces: `~/.antighram-workspaces.json`
+- Conversation history: `~/.antighram-conversations.json`
 
 ---
 
@@ -347,11 +351,11 @@ To keep the bot running 24/7 as a background service on your Linux host:
 
 ### 1. Create a systemd Service File
 
-Create `/etc/systemd/system/agy-bot.service` (replace `arun` and paths with your username and repo location):
+Create `/etc/systemd/system/antighram.service` (replace `arun` and paths with your username and repo location):
 
 ```ini
 [Unit]
-Description=Telegram Antigravity Bot
+Description=Antighram Bot
 After=network.target
 
 [Service]
@@ -374,18 +378,18 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable agy-bot.service
-sudo systemctl start agy-bot.service
+sudo systemctl enable antighram.service
+sudo systemctl start antighram.service
 ```
 
 ### 3. Manage and Check Logs
 
 ```bash
 # Check service status
-sudo systemctl status agy-bot.service
+sudo systemctl status antighram.service
 
 # View live streaming logs
-journalctl -u agy-bot.service -f
+journalctl -u antighram.service -f
 ```
 
 ---
