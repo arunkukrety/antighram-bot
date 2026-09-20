@@ -24,11 +24,13 @@ def run_stream_print_mode_sync(
     session: ChatSession,
     prompt: str,
     event_callback=None,
+    raw_sink=None,
 ):
     """
     Run agy using stream-json.
 
     event_callback receives each decoded event.
+    raw_sink, when provided, collects non-JSON output lines for diagnostics.
     """
 
     cmd = [
@@ -124,6 +126,9 @@ def run_stream_print_mode_sync(
 
                     except json.JSONDecodeError:
 
+                        if raw_sink is not None:
+                            raw_sink.append(line)
+
                         log.debug(
                             "Non-JSON agy output: %s",
                             line,
@@ -160,7 +165,9 @@ def run_stream_print_mode_sync(
                     )
 
             except Exception:
-                pass
+                tail = strip_ansi(buffer).strip()
+                if tail and raw_sink is not None:
+                    raw_sink.append(tail)
 
         try:
             child.close(
@@ -285,12 +292,15 @@ async def handle_print_message(
 
         loop = asyncio.get_running_loop()
 
+        raw_lines = []
+
         events = await loop.run_in_executor(
             None,
             run_stream_print_mode_sync,
             session,
             text,
             event_callback,
+            raw_lines,
         )
 
         # Give queued events a moment to be consumed.
@@ -341,6 +351,26 @@ async def handle_print_message(
 
         if not result:
 
+            tail = "\n".join(raw_lines[-10:]).strip()
+
+            log.warning(
+                "No result event from agy. Non-JSON output tail:\n%s",
+                tail or "(no non-JSON output captured)",
+            )
+
+            message = (
+                "⚠️ agy finished, "
+                "but no result was returned."
+            )
+
+            if tail:
+                snippet = tail[-1500:]
+                message += (
+                    "\n\n<pre>"
+                    + html.escape(snippet)
+                    + "</pre>"
+                )
+
             if status_message:
 
                 try:
@@ -349,17 +379,11 @@ async def handle_print_message(
                         message_id=(
                             status_message.message_id
                         ),
-                        text=(
-                            "⚠️ agy finished, "
-                            "but no result was returned."
-                        ),
+                        text=message,
+                        parse_mode=ParseMode.HTML,
                     )
                 except Exception:
                     pass
-
-            log.warning(
-                "No result event from agy."
-            )
 
             return
 
