@@ -112,13 +112,34 @@ class _ConPTYChild:
         while not self._eof.is_set():
             try:
                 data = self._proc.read(4096)
-            except Exception:
-                data = b""
-            if isinstance(data, str):
-                data = data.encode(self._enc, self._codec_errors)
-            if not data:
+            except EOFError:
+                # The pty/socket is genuinely closed - the child is gone.
                 self._eof.set()
                 return
+            except Exception:
+                # Transient read error. Only stop if the child has actually
+                # exited; otherwise keep reading so we don't drop output.
+                if not self.isalive():
+                    self._eof.set()
+                    return
+                time.sleep(0.01)
+                continue
+
+            if isinstance(data, str):
+                data = data.encode(self._enc, self._codec_errors)
+
+            if not data:
+                # winpty's read() can return an empty string without the
+                # process having exited (e.g. its internal "0011Ignore"
+                # sentinel). Treating that as EOF truncates the stream and
+                # can drop the final `result` event, so only stop when the
+                # child is really gone.
+                if not self.isalive():
+                    self._eof.set()
+                    return
+                time.sleep(0.005)
+                continue
+
             self._chunks.put(data)
 
     def read_nonblocking(
