@@ -14,7 +14,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from agy_bot.config import log
 
 
-CONVERSATION_HISTORY_FILE = os.path.expanduser("~/.agy-telegram-conversations.json")
+CONVERSATION_HISTORY_FILE = os.path.expanduser("~/.antighram-conversations.json")
 BRAIN_DIR = os.path.expanduser("~/.gemini/antigravity-ide/brain")
 
 

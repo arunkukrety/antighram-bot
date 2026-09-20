@@ -30,7 +30,7 @@ class SetupWizard:
         ctk.set_default_color_theme('blue')
 
         self._root = ctk.CTk()
-        self._root.title('Antigravity Bot — First Run Setup')
+        self._root.title('Antighram Bot — First Run Setup')
         self._root.geometry('460x520')
         self._root.resizable(False, False)
         self._root.configure(fg_color=COLOR_BG_DARK)
@@ -49,7 +49,7 @@ class SetupWizard:
         ).pack(pady=(36, 0))
 
         ctk.CTkLabel(
-            r, text='Antigravity Bot',
+            r, text='Antighram Bot',
             font=ctk.CTkFont(family='Roboto', size=22, weight='bold'),
             text_color=COLOR_TEXT,
         ).pack(pady=(4, 2))

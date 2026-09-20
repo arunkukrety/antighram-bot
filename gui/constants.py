@@ -7,8 +7,8 @@ import sys
 IS_WINDOWS = sys.platform == "win32"
 IS_LINUX = sys.platform.startswith("linux")
 
-APP_NAME = "Antigravity Bot"
-APP_ID = "agy-telegram-bot"               # used for startup entries
+APP_NAME = "Antighram Bot"
+APP_ID = "antighram-bot"                   # used for startup entries
 WINDOW_W, WINDOW_H = 500, 620
 REFRESH_MS = 1500                         # status + log refresh interval
 

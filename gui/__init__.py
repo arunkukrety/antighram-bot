@@ -1,5 +1,5 @@
 """
-gui/ — Antigravity Bot desktop control-center package.
+gui/ — Antighram Bot desktop control-center package.
 
 Modules:
     constants.py    app metadata, platform flags, theme palette, geometry

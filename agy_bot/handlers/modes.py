@@ -41,7 +41,7 @@ async def cmd_help(
         return
 
     text = (
-        "🤖 <b>Antigravity Telegram Bot Commands</b>\n\n"
+        "🤖 <b>Antighram Bot Commands</b>\n\n"
         "<b>System &amp; Health:</b>\n"
         "• /health — Check service, bot and system health\n\n"
         "<b>Chat &amp; Conversations:</b>\n"

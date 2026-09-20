@@ -1,5 +1,5 @@
 """
-gui_app.py — Antigravity Telegram Bot Desktop Control Center (entry point).
+gui_app.py — Antighram Bot Desktop Control Center (entry point).
 
 Cross-platform desktop tray application for Windows and Linux.
 Manages the bot server process, live logs, and environment config

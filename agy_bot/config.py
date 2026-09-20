@@ -20,7 +20,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
-log = logging.getLogger("agy-telegram-bot")
+log = logging.getLogger("antighram-bot")
 
 # ============================================================================
 # CORE SETTINGS
@@ -35,13 +35,13 @@ AGY_BIN = os.environ.get(
 
 CONFIG_FILE = Path(
     os.path.expanduser(
-        "~/.agy-telegram-config.json"
+        "~/.antighram-config.json"
     )
 )
 
 WORKSPACE_HISTORY_FILE = Path(
     os.path.expanduser(
-        "~/.agy-telegram-workspaces.json"
+        "~/.antighram-workspaces.json"
     )
 )
 

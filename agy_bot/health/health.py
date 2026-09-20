@@ -106,7 +106,7 @@ def build_health_display(
     )
 
     lines = [
-        "🩺 <b>Antigravity Service Health</b>",
+        "🩺 <b>Antighram Service Health</b>",
         "──────────────────────",
         f"🤖 <b>Bot Service:</b> {bot_status_badge}",
         f"• Uptime: <code>{sys_health['uptime_formatted']}</code> (PID <code>{sys_health['pid']}</code>)",

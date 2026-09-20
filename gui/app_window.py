@@ -208,7 +208,7 @@ class AgyBotApp:
 
         ctk.CTkLabel(
             header,
-            text="✦ Antigravity Bot",
+            text="✦ Antighram Bot",
             font=ctk.CTkFont(family="Roboto", size=18, weight="bold"),
             text_color=COLOR_TEXT,
         ).pack(side="left", padx=20)

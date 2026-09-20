@@ -17,9 +17,9 @@ if IS_FROZEN:
     APP_DIR = Path(sys.executable).parent
     BUNDLE_DIR = Path(sys._MEIPASS)          # PyInstaller temp extraction dir
     if sys.platform == "win32":
-        CONFIG_DIR = Path(os.environ.get("APPDATA", Path.home())) / "AntigravityBot"
+        CONFIG_DIR = Path(os.environ.get("APPDATA", Path.home())) / "AntighramBot"
     else:
-        CONFIG_DIR = Path.home() / ".config" / "agy-telegram-bot"
+        CONFIG_DIR = Path.home() / ".config" / "antighram-bot"
 else:
     APP_DIR = Path(__file__).resolve().parent.parent
     BUNDLE_DIR = APP_DIR

@@ -79,7 +79,7 @@ async def post_init(application: Application) -> None:
 
     target_chats = get_notification_chat_ids()
     online_text = (
-        "🟢 <b>Antigravity Bot is Online</b>\n\n"
+        "🟢 <b>Antighram Bot is Online</b>\n\n"
         "💻 Server is up and ready for commands.\n"
         "Type /help to see commands or tap <b>[/]</b> to browse."
     )
@@ -97,7 +97,7 @@ async def post_init(application: Application) -> None:
 async def post_stop(application: Application) -> None:
     target_chats = get_notification_chat_ids()
     offline_text = (
-        "🔴 <b>Antigravity Bot is Going Offline</b>\n\n"
+        "🔴 <b>Antighram Bot is Going Offline</b>\n\n"
         "💤 The bot server process is stopping.\n"
         "Commands are paused until the server starts back up."
     )

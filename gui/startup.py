@@ -74,7 +74,7 @@ def set_startup_enabled(enabled: bool) -> None:
                 f"Exec={_gui_launch_cmd()}\n"
                 "Type=Application\n"
                 "Categories=Utility;\n"
-                "Comment=Antigravity Telegram Bot Control Center\n"
+                "Comment=Antighram Bot Control Center\n"
                 "X-GNOME-Autostart-enabled=true\n"
                 f"Icon={PROJECT_DIR / 'assets' / 'icon.png'}\n"
             )
